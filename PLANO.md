@@ -51,21 +51,49 @@ acentos**; em inglês, apenas o que o framework impõe (métodos do Prisma, past
 do Nuxt, composables). Os termos de kendo — kyu, dan — ficam como são ditos.
 O código fala a mesma língua da diretoria, da documentação e dos commits.
 
+> O banco hoje está no formato da etapa 0. O modelo abaixo é o alvo, revisado em
+> agosto de 2026 a partir dos campos levantados pela diretoria; a migração
+> acontece na etapa 2.
+
 ```
 Usuario               id, email, senhaHash, papel (DIRETORIA|PRATICANTE),
                       praticanteId?, ativo, ultimoAcessoEm, criadoEm
 TokenRedefinicaoSenha id, usuarioId, tokenHash, expiraEm, usadoEm?
-Praticante            id, nomeCompleto, dataNascimento, telefone, email, endereco?,
-                      responsavelNome?, responsavelTelefone?,      # menores
-                      responsavelConsentimentoEm?,                 # LGPD
-                      situacao (ATIVO|AFASTADO|DESLIGADO),
-                      ingressouEm, desligadoEm?, valorMensalidade, observacoes?
-Graduacao             id, praticanteId, grau (KYU_8..KYU_1, DAN_1..DAN_8),
-                      obtidaEm, observacoes?
-Mensalidade           id, praticanteId, competencia (AAAA-MM), valor, vencimento,
-                      situacao (ABERTA|PAGA|ISENTA|CANCELADA),
+
+Praticante            id, nomeCompleto, dataNascimento,
+                      documento, tipoDocumento (CPF|DOCUMENTO_ESTRANGEIRO),
+                      titularDocumento (PROPRIO|RESPONSAVEL), nacionalidade,
+                      sexo (FEMININO|MASCULINO),
+                      email (contato), telefone, telefoneAlternativo?,
+                      cep?, logradouro?, numero?, complemento?, bairro?,
+                      cidade?, uf?,
+                      emergenciaNome?, emergenciaTelefone?, emergenciaParentesco?,
+                      responsavelNome?, responsavelTelefone?,
+                      observacoesMedicas?,          # dado sensível — ver §11
+                      iniciouPraticaEm?, observacoes?,
+                      consentimentoDadosEm?, consentimentoSaudeEm?,
+                      autorizacaoImagemEm?, responsavelConsentimentoEm?
+Filiacao              id, praticanteId, inicioEm, fimEm?, motivoSaida?
+Modalidade            id, nome (único), kyuInicial, ativa
+PraticanteModalidade  id, praticanteId, modalidadeId, desde, ate?
+Graduacao             id, praticanteId, modalidadeId,
+                      grau (KYU_10..KYU_1, DAN_1..DAN_8), obtidaEm, observacoes?
+Isencao               id, praticanteId, inicioEm, fimEm?, motivo,
+                      concedidaPorUsuarioId
+
+Item                  id, nome, identificador? (patrimônio), tipo?,
+                      situacao (DISPONIVEL|ALUGADO|MANUTENCAO|BAIXADO),
+                      valorMensalAluguel, observacoes?
+Aluguel               id, itemId, praticanteId, inicioEm, fimEm?,
+                      valorMensal, observacao?
+
+Mensalidade           id, praticanteId, competencia (AAAA-MM), vencimento,
+                      valorTotal, situacao (ABERTA|PAGA|ISENTA|CANCELADA),
                       pagaEm?, valorPago?, formaPagamento?, observacao?,
                       baixadaPorUsuarioId?
+LinhaMensalidade      id, mensalidadeId, tipo (MENSALIDADE|ALUGUEL|OUTRO),
+                      descricao, valor, aluguelId?
+
 Publicacao            id, titulo, slug, conteudo (markdown), imagemCapa?,
                       visibilidade (PUBLICA|RESTRITA), publicadaEm?, autorUsuarioId
 Evento                id, titulo, slug, descricao (markdown), inicioEm, fimEm?,
@@ -74,6 +102,7 @@ Evento                id, titulo, slug, descricao (markdown), inicioEm, fimEm?,
 ConfirmacaoPresenca   id, eventoId, praticanteId,
                       situacao (VOU|NAO_VOU|TALVEZ), atualizadoEm
 ConfiguracaoClube     nomeClube, logo?, chavePix, titularPix, emailContato,
+                      valorMensalidade, diaVencimento,
                       fusoHorario (America/Sao_Paulo), corPrimaria
 ```
 
@@ -82,11 +111,51 @@ Notas de modelagem:
 - `Usuario` e `Praticante` separados de propósito: praticante menor de idade pode
   existir sem conta de acesso, e quem é da diretoria pode ter conta sem ser
   praticante.
-- `Mensalidade` guarda o valor cobrado (não deriva de
-  `Praticante.valorMensalidade` na hora de exibir) — senão, reajustar a
-  mensalidade reescreveria o histórico.
+- **O e-mail do praticante é de contato e pode repetir**; o e-mail único é o da
+  conta de acesso. Sem essa separação, uma mãe com três filhos no dojo não
+  conseguiria cadastrar o terceiro.
+- **Situação de filiação é derivada**, não guardada: quem tem `Filiacao` em aberto
+  está filiado. Períodos separados registram quem saiu e voltou sem reescrever o
+  tempo de casa. O banco garante, por índice parcial, no máximo uma filiação
+  aberta por praticante.
+- **A data de filiação é informada, não presumida.** O cadastro sugere hoje, mas
+  aceita data retroativa — o primeiro uso do sistema é justamente cadastrar quem
+  treina há anos, e nascer com a data errada estragaria o tempo de casa de todo o
+  quadro.
+- `sexo` existe para inscrição em campeonato, onde as chaves são separadas.
+- **Graduação pertence à modalidade**, não ao praticante: um 3º dan de kendo pode
+  ser 1º dan de iaido. E **não existe campo "grau atual"** — é a graduação mais
+  recente de cada modalidade, senão um dia ele discorda do histórico.
+- **Isenção tem período, motivo e responsável**, porque mexe em dinheiro. O mês de
+  quem tem isenção vigente gera `Mensalidade` com situação `ISENTA`, e não
+  ausência de cobrança: buraco no histórico ninguém sabe explicar depois.
+- **Mensalidade é composta por linhas** (a mensalidade do clube mais o aluguel de
+  cada item). O praticante enxerga de que se compõe o valor, e taxa de exame ou
+  camiseta entram depois sem mudar o modelo.
+- **Valor da mensalidade fica na configuração do clube**, porque é o mesmo para
+  todos. Cada `LinhaMensalidade` guarda o valor aplicado na geração — reajuste
+  não reescreve o passado. `Aluguel.valorMensal` segue a mesma regra em relação a
+  `Item.valorMensalAluguel`.
 - `Mensalidade` tem unicidade `(praticanteId, competencia)`: o banco impede gerar
   a mesma competência duas vezes para o mesmo praticante.
+- **Documento, não "CPF".** O campo aceita CPF ou documento estrangeiro, e a
+  verificação dos dígitos verificadores só roda no CPF. CPF é guardado apenas com
+  os números, para o mesmo praticante não entrar duas vezes com pontuação
+  diferente.
+- **`titularDocumento` existe por causa dos irmãos.** Menor sem CPF é cadastrado
+  com o do responsável; dois filhos da mesma mãe teriam o mesmo número e o
+  segundo esbarraria no índice único. A unicidade vale, por índice parcial,
+  somente para documento próprio: adulto duplicado continua barrado, irmãos
+  passam.
+- **Nacionalidade, não naturalidade.** O que o cadastro precisa saber é se a
+  pessoa é brasileira — e quem de fato decide a validação é `tipoDocumento`.
+  Cidade de nascimento não é coletada: não tem uso no clube.
+- **Não existe "afastado".** Quem para de treinar se desliga, e volta com uma nova
+  filiação. Um estado a menos é uma regra a menos na geração de mensalidade.
+- **Faixa de graduação parametrizável.** O enum guarda a faixa máxima possível
+  (10º kyu a 8º dan) e `Modalidade.kyuInicial` decide onde a lista começa em cada
+  modalidade — kendo pode começar no 6º kyu e iaido no 5º. Mudar a faixa nunca
+  vira migração de banco.
 - `ConfirmacaoPresenca` não se chama `Presenca` porque o controle de presença nos
   treinos, previsto para depois do MVP, vai precisar desse nome.
 - `Grau` começa no 8º kyu para atender clubes com turma infantil.
@@ -196,14 +265,18 @@ armazenamento S3-compatível fica como opção posterior atrás da mesma interfa
 |---|---|---|
 | 0 | Fundação: Node 20.20, Nuxt 3.21 + TS, Nuxt UI, Prisma, banco de dev, lint, `.env.example`, LICENSE, README | `npm run dev` sobe a home e a migration inicial roda |
 | 1 | Autenticação: login, logout, sessão, papéis, redefinição de senha, setup do admin | Diretoria e praticante entram e cada um vê o que lhe cabe |
-| 2 | Praticantes: CRUD, graduações, situação, busca e filtros | A diretoria consegue migrar a planilha atual para o sistema |
-| 3 | Mensalidades: geração do mês, baixa, inadimplência, visão do praticante com Pix | Fecha um mês inteiro de cobrança sem planilha |
-| 4 | Newsfeed: posts públicos e restritos, home pública, imagem de capa | O clube publica e o post aparece só para quem deve ver |
-| 5 | Eventos: cadastro, agenda, RSVP, lista de confirmados | Um campeonato real é divulgado e confirmado pelo app |
-| 6 | Empacotamento: Docker, docs de instalação, dados de demonstração, CI | Outro clube instala seguindo só o README |
+| 2 | Praticantes: cadastro completo, filiações, modalidades (Kendo e Iaido), graduações, isenções, busca e filtros | A diretoria cadastra o quadro inteiro do clube |
+| 3 | Itens alugáveis: cadastro de itens e controle de aluguel por praticante | Sabe-se quem está com qual bogu, desde quando e por quanto |
+| 4 | Mensalidades: geração do mês com linhas, baixa, inadimplência, visão do praticante com Pix | Fecha um mês inteiro de cobrança sem planilha |
+| 5 | Newsfeed: posts públicos e restritos, home pública, imagem de capa | O clube publica e o post aparece só para quem deve ver |
+| 6 | Eventos: cadastro, agenda, confirmação de presença, lista de confirmados | Um campeonato real é divulgado e confirmado pelo app |
+| 7 | Empacotamento: Docker, docs de instalação, dados de demonstração, CI | Outro clube instala seguindo só o README |
 
-As etapas 1 a 5 já são utilizáveis pelo seu clube antes de a 6 existir. A etapa 6
+As etapas 1 a 6 já são utilizáveis pelo seu clube antes de a 7 existir. A etapa 7
 é o que transforma "meu sistema" em "software que outro clube usa".
+
+Os itens alugáveis vêm **antes** das mensalidades porque a cobrança do mês inclui
+linha de aluguel: sem aluguel cadastrado, não há o que somar.
 
 **Concluídas:** etapas 0 e 1 (agosto de 2026).
 
@@ -267,6 +340,24 @@ Execução:
 - **LGPD e menores.** O sistema guarda dados de crianças e adolescentes. Coletar o
   mínimo, registrar o consentimento do responsável no cadastro e ter como excluir
   um praticante de verdade quando ele pedir.
+- **Observações médicas são dado sensível** (LGPD, art. 5º, II — dados de saúde),
+  não apenas dado pessoal. Tratamento: consentimento próprio e destacado
+  (`consentimentoSaudeEm`), visível somente para a diretoria, **nunca em listagem
+  nem em exportação**, e sempre acompanhado do contato de emergência, que é o que
+  serve na hora do problema.
+  *Decisão de não cifrar em repouso:* num sistema mantido por voluntário, a chave
+  se perde, e o dado se perde junto — o risco real vira indisponibilidade. A
+  proteção fica no acesso ao banco e na restrição por papel.
+- **CPF pede cuidado redobrado**: validar os dígitos verificadores, guardar só os
+  números, índice único, e não exibir em listagem — número de CPF em tela aberta
+  é material de fraude.
+- **Autorização de uso de imagem** (`autorizacaoImagemEm`) existe porque o
+  newsfeed publica foto de treino e campeonato, boa parte com menores. Sem esse
+  registro, cada publicação é uma aposta.
+- **Praticante com histórico financeiro não se apaga, se anonimiza.** Excluir a
+  pessoa apagaria mensalidades pagas, que são registro contábil do clube. O
+  atendimento ao pedido de exclusão remove os dados pessoais e preserva os
+  lançamentos.
 - **Envio de e-mail.** É a única dependência externa do MVP. Clube sem SMTP precisa
   de um plano B: a diretoria gera um link de redefinição direto no painel.
 - **Dinheiro pede trilha.** Toda baixa registra quem deu e quando; sem exclusão
