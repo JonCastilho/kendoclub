@@ -1,23 +1,28 @@
-.DS_Store
+# Nuxt
+.nuxt
+.nitro
+.output
+.data
+.cache
+dist
+
+# Node
 node_modules
-/dist
+*.log
+# O .npmrc do projeto é versionado (ver o comentário dentro dele).
+# Nunca coloque credenciais de registry nele — use o ~/.npmrc pessoal.
 
+# Ambiente — nunca versionar credenciais
+.env
+.env.*
+!.env.example
 
-# local env files
-.env.local
-.env.*.local
+# Uploads locais (imagens de posts e eventos)
+/uploads
 
-# Log files
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-
-# Editor directories and files
+# Editor e sistema operacional
+.DS_Store
+Thumbs.db
 .idea
-.vscode
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+.vscode/*
+!.vscode/extensions.json
