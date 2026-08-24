@@ -38,13 +38,25 @@ cd kendoclub
 npm install
 cp .env.example .env   # preencha DATABASE_URL e NUXT_SESSION_PASSWORD
 npm run db:migrate     # cria as tabelas
+npm run setup -- --email diretoria@seuclube.org --clube "Nome do Clube"
 npm run dev
 ```
 
 A aplicação sobe em <http://localhost:3000>.
 
-Outros comandos: `npm run lint`, `npm run test`, `npm run build`,
-`npm run db:studio` (navegador de dados do Prisma).
+O `setup` cria a conta inicial da diretoria e **mostra uma senha sorteada uma
+única vez** — guarde-a nesse momento. Não existe senha padrão no código: se
+existisse, toda instalação deste sistema nasceria com a mesma credencial, e ela
+estaria publicada aqui.
+
+Outros comandos: `npm run lint`, `npm run typecheck`, `npm run test`,
+`npm run build`, `npm run db:studio` (navegador de dados do Prisma).
+
+### Envio de e-mail
+
+A redefinição de senha usa SMTP, configurado em `.env`. **Sem SMTP configurado o
+sistema continua funcionando**: a mensagem não sai e o link é registrado no log
+do servidor, o que basta em desenvolvimento.
 
 Todas as variáveis de ambiente estão documentadas em
 [.env.example](.env.example).

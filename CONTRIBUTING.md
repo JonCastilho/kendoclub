@@ -35,7 +35,13 @@ sem essa linha não podem ser aceitos.
   `valorMensalidade`). Fica em inglês só o que o framework impõe — métodos do
   Prisma, pastas do Nuxt, composables `useX`. Termos de kendo (kyu, dan) ficam
   como são ditos.
-- `npm run lint` e `npm run test` precisam passar antes de abrir o PR.
+- `npm run lint`, `npm run typecheck` e `npm run test` precisam passar antes de
+  abrir o PR. O `typecheck` não é opcional: o ESLint aqui não acusa identificador
+  não declarado (esse papel é do TypeScript), então pular a checagem deixa passar
+  função usada sem importar — que só quebra quando alguém usa a tela.
+- Auto-import: o Nuxt alcança `server/utils/` inteiro, mas dentro de `shared/`
+  apenas `shared/utils/` e `shared/types/`. Arquivo na raiz de `shared/` exige
+  import explícito.
 - Regras de negócio sensíveis — geração de cobrança, baixa de pagamento,
   permissões e visibilidade de conteúdo — devem vir com teste.
 - Verificação de permissão sempre no servidor. Esconder um botão na interface não

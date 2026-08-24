@@ -15,6 +15,15 @@ export function ehCompetenciaValida(competencia: string): boolean {
   return FORMATO.test(competencia)
 }
 
+/**
+ * Separa ano e mês. Só chame depois de validar o formato — a validação é que
+ * garante que os dois números existem.
+ */
+function partesDa(competencia: string): { ano: number, mes: number } {
+  const [ano, mes] = competencia.split('-')
+  return { ano: Number(ano), mes: Number(mes) }
+}
+
 /** Competência do mês corrente, no fuso local. */
 export function competenciaAtual(data: Date = new Date()): string {
   const mes = String(data.getMonth() + 1).padStart(2, '0')
@@ -26,8 +35,8 @@ export function formatarCompetencia(competencia: string): string {
   if (!ehCompetenciaValida(competencia)) {
     throw new Error(`Competência inválida: ${competencia}`)
   }
-  const [ano, mes] = competencia.split('-')
-  return `${MESES[Number(mes) - 1]}/${ano}`
+  const { ano, mes } = partesDa(competencia)
+  return `${MESES[mes - 1]}/${ano}`
 }
 
 /** '2026-12' → '2027-01' */
@@ -35,7 +44,7 @@ export function proximaCompetencia(competencia: string): string {
   if (!ehCompetenciaValida(competencia)) {
     throw new Error(`Competência inválida: ${competencia}`)
   }
-  const [ano, mes] = competencia.split('-').map(Number)
+  const { ano, mes } = partesDa(competencia)
   return mes === 12
     ? `${ano + 1}-01`
     : `${ano}-${String(mes + 1).padStart(2, '0')}`
@@ -52,7 +61,7 @@ export function vencimentoDa(competencia: string, diaVencimento: number): Date {
   if (!Number.isInteger(diaVencimento) || diaVencimento < 1 || diaVencimento > 31) {
     throw new Error(`Dia de vencimento inválido: ${diaVencimento}`)
   }
-  const [ano, mes] = competencia.split('-').map(Number)
+  const { ano, mes } = partesDa(competencia)
   const ultimoDia = new Date(Date.UTC(ano, mes, 0)).getUTCDate()
   return new Date(Date.UTC(ano, mes - 1, Math.min(diaVencimento, ultimoDia)))
 }

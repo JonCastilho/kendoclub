@@ -205,6 +205,27 @@ armazenamento S3-compatível fica como opção posterior atrás da mesma interfa
 As etapas 1 a 5 já são utilizáveis pelo seu clube antes de a 6 existir. A etapa 6
 é o que transforma "meu sistema" em "software que outro clube usa".
 
+**Concluídas:** etapas 0 e 1 (agosto de 2026).
+
+Decisões da etapa 1, registradas para não serem desfeitas por engano:
+
+- **Formulários nativos com `method="post"`.** Entrar, sair e redefinir senha são
+  formulários HTML de verdade: funcionam antes da hidratação e sem JavaScript. É
+  o que neutraliza o aviso GHSA-gj2h-2fpw-fhv9 do Nuxt UI 3.
+- **Sair é POST.** Como link GET, bastaria uma imagem em outro site para derrubar
+  a sessão de quem passasse por lá.
+- **Cookie `HttpOnly` e `SameSite=Lax`.** O navegador não envia o cookie em POST
+  vindo de outro domínio, o que já barra CSRF nos formulários deste projeto.
+- **Mesma mensagem para e-mail inexistente e senha errada**, com verificação
+  contra um hash descartável quando o e-mail não existe — sem isso, o tempo de
+  resposta entregaria quem tem cadastro no clube.
+- **Cinco tentativas por conta e endereço**, em janela de quinze minutos que
+  reinicia a cada falha. Em memória, porque o modelo é uma instância por clube.
+- **Senha em scrypt** (N=16384, r=8, p=1), com os parâmetros dentro do próprio
+  hash, para permitir aumentar o custo no futuro sem invalidar os existentes.
+- **Token de redefinição guardado só como hash**, uso único, uma hora de
+  validade; os pendentes do mesmo usuário caem quando um é usado.
+
 ## 10. Abertura do código
 
 ### Licença: AGPL-3.0-only
@@ -252,6 +273,10 @@ Execução:
   silenciosa de cobrança paga.
 - **Sessão em cookie** com `Secure`, `HttpOnly` e `SameSite`; HTTPS obrigatório em
   produção.
+- **Sessão aberta não é revogável.** O cookie é selado e não tem registro no
+  servidor, então trocar a senha não derruba uma sessão já ativa em outro
+  aparelho — ela cai quando expira, em sete dias. Encerrar todas exigiria guardar
+  sessão no banco; fica para quando houver motivo concreto.
 - **Aviso de segurança do Nuxt UI 3** (GHSA-gj2h-2fpw-fhv9, moderado): o markup
   renderizado no servidor por `UForm`/`UAuthForm` omite o atributo `method`, e um
   envio feito antes da hidratação vai por GET — o que colocaria a senha na URL. A

@@ -14,6 +14,23 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
 
   runtimeConfig: {
+    // Sessão do nuxt-auth-utils: cookie selado, sem estado no servidor.
+    // A senha de selagem vem de NUXT_SESSION_PASSWORD e não tem valor padrão de
+    // propósito — o servidor deve recusar subir sem ela, em vez de assinar
+    // sessão com um segredo que está publicado no GitHub.
+    session: {
+      name: 'kendoclub_sessao',
+      password: '',
+      maxAge: 60 * 60 * 24 * 7, // sete dias
+      cookie: {
+        httpOnly: true, // o JavaScript da página não lê o cookie
+        // 'lax' faz o navegador não mandar o cookie em POST vindo de outro
+        // site, o que já barra CSRF nos formulários deste projeto.
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+      },
+    },
+
     // Somente no servidor.
     smtpHost: '',
     smtpPort: '587',
