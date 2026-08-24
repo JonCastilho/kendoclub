@@ -26,7 +26,7 @@ export default defineNuxtConfig({
     public: {
       appUrl: 'http://localhost:3000',
       // Link do rodapé exigido pelo artigo 13 da AGPL-3.0.
-      sourceUrl: 'https://github.com/SEU-USUARIO/kendoclub',
+      sourceUrl: 'https://github.com/JonCastilho/kendoclub',
     },
   },
 

@@ -33,7 +33,7 @@ versão com suporte ativo (22 ou 24 LTS) — o Node 20 saiu de suporte em abril 
 2026.
 
 ```bash
-git clone <url-do-repositorio> kendoclub
+git clone https://github.com/JonCastilho/kendoclub.git
 cd kendoclub
 npm install
 cp .env.example .env   # preencha DATABASE_URL e NUXT_SESSION_PASSWORD

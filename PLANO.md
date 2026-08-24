@@ -267,7 +267,12 @@ Execução:
 
 ## 12. Em aberto
 
-1. Onde vai hospedar (VPS, Railway, Render, outro) e se já há domínio.
-2. Onde fica o repositório público (GitHub tende a ser mais descoberto que GitLab).
-3. Identidade visual: logo e cores do clube.
-4. Existe hoje uma planilha de praticantes e mensalidades para importar?
+1. Onde vai hospedar e se já há domínio. Levantamento feito em ago/2026: a
+   Oracle Cloud Always Free (2 OCPU ARM, 12 GB de RAM, 200 GB de disco, região
+   São Paulo) é a única opção gratuita sem hibernação e com disco persistente,
+   e é a que casa com o `docker-compose.yml` da etapa 6. Descartado o plano
+   gratuito do Render: hiberna após 15 minutos e o Postgres expira em 30 dias.
+2. Identidade visual: logo e cores do clube.
+3. Existe hoje uma planilha de praticantes e mensalidades para importar?
+
+Resolvido: o repositório público é <https://github.com/JonCastilho/kendoclub>.
