@@ -2,7 +2,7 @@ export default defineEventHandler(async (event) => {
   await exigirDiretoria(event)
 
   const id = getRouterParam(event, 'id')!
-  const corpo = await readBody(event)
+  const corpo = (await readBody(event)) ?? {}
   const voltar = `/praticantes/${id}`
   const prisma = usePrisma()
 

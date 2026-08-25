@@ -1,7 +1,7 @@
 export default defineEventHandler(async (event) => {
   await exigirDiretoria(event)
 
-  const corpo = await readBody(event)
+  const corpo = (await readBody(event)) ?? {}
   const { dados, problemas } = lerFormularioDoPraticante(corpo)
 
   // A data de filiação é informada e pode ser retroativa: o primeiro uso do

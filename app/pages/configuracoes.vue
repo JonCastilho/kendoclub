@@ -64,6 +64,37 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
         </div>
       </div>
 
+      <div>
+        <label
+          for="regraCobrancaAluguel"
+          class="block text-sm font-medium mb-1"
+        >Quais aluguéis entram na mensalidade do mês</label>
+        <select
+          id="regraCobrancaAluguel"
+          name="regraCobrancaAluguel"
+          :class="classeCampo"
+        >
+          <option
+            value="ABERTO_NO_PRIMEIRO_DIA"
+            :selected="clube.regraCobrancaAluguel !== 'ABERTO_EM_QUALQUER_DIA'"
+          >
+            Só os que já existiam no dia 1º
+          </option>
+          <option
+            value="ABERTO_EM_QUALQUER_DIA"
+            :selected="clube.regraCobrancaAluguel === 'ABERTO_EM_QUALQUER_DIA'"
+          >
+            Todos que existiram em algum dia do mês
+          </option>
+        </select>
+        <p class="mt-1 text-xs text-muted">
+          Na primeira opção, quem retira o equipamento no meio do mês paga a
+          partir do mês seguinte, e quem retira e devolve dentro do mesmo mês não
+          é cobrado. A segunda é mais favorável ao clube e mais difícil de
+          explicar ao praticante.
+        </p>
+      </div>
+
       <div class="grid gap-4 sm:grid-cols-2">
         <CampoTexto
           nome="chavePix"

@@ -17,6 +17,7 @@ export default defineEventHandler(async (event) => {
     valorMensalidade: 0,
     diaVencimento: 10,
     valorAluguelPadrao: 0,
+    regraCobrancaAluguel: 'ABERTO_NO_PRIMEIRO_DIA' as const,
     corPrimaria: '#1e3a8a',
     fusoHorario: 'America/Sao_Paulo',
   }

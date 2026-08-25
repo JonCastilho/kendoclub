@@ -3,7 +3,7 @@ import { KYU_MAXIMO } from '~~/shared/graduacao'
 export default defineEventHandler(async (event) => {
   await exigirDiretoria(event)
 
-  const corpo = await readBody(event)
+  const corpo = (await readBody(event)) ?? {}
   const voltar = '/modalidades'
   const prisma = usePrisma()
 

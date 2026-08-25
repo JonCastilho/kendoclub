@@ -5,7 +5,7 @@ const SITUACOES = ['DISPONIVEL', 'MANUTENCAO', 'BAIXADO'] as const
 export default defineEventHandler(async (event) => {
   await exigirDiretoria(event)
 
-  const corpo = await readBody(event)
+  const corpo = (await readBody(event)) ?? {}
   const voltar = '/itens'
   const prisma = usePrisma()
 

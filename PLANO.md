@@ -339,7 +339,36 @@ Sobre anexar o comprovante, quando chegar a hora — levantamento de agosto/2026
 - Entrega sempre por rota autenticada que confere de quem é a cobrança; nunca
   pasta pública. Tipo validado pelos bytes, não pela extensão.
 
-**Concluídas:** etapas 0, 1, 2 e 3 (agosto de 2026).
+**Concluídas:** etapas 0, 1, 2, 3 e 4 (agosto de 2026).
+
+Decisões da etapa 4:
+
+- **A isenção tem abrangência**: cobre a mensalidade, os aluguéis, ou tudo
+  (padrão). "Gratuidade" significa coisas diferentes em clubes diferentes, e sem
+  esse campo a escolha ficaria implícita no código em vez de ser da diretoria.
+  A linha isenta aparece zerada e com o motivo escrito, em vez de sumir — assim
+  a cobrança explica a si mesma. Duas isenções somam abrangências.
+- **A cobrança gerada pode ser recalculada individualmente.** A geração é um
+  retrato do mês: isenção concedida ou aluguel registrado depois não mudam
+  sozinhos o que já foi emitido. Sem recálculo, a saída seria corrigir no banco à
+  mão — que é como clube pequeno perde o controle do próprio histórico.
+  Cobrança **paga** não recalcula nem cancela (estorne antes), e **cancelada**
+  não recalcula (reabra antes). Cancelamento e reabertura carimbam a observação
+  com quem fez e quando.
+- **Geração e recálculo usam o mesmo cálculo.** Se fossem dois, um dia
+  discordariam — e a diferença apareceria como centavos inexplicáveis.
+- **Gerar o mês é idempotente.** Rodar de novo não duplica: a unicidade
+  `(praticanteId, competencia)` está no banco e as existentes são contadas e
+  puladas. "Gerar" é o botão que alguém vai clicar duas vezes.
+- **Somas em centavos.** `0.1 + 0.2` em ponto flutuante dá `0.30000000000000004`;
+  com uma mensalidade e três aluguéis, a diferença aparece no total que o
+  praticante confere.
+- **Estorno não apaga, carimba.** Estornar uma baixa devolve a cobrança para
+  aberta e registra na observação quem estornou e quando. Cobrança paga não some
+  em silêncio.
+- **O resumo da geração volta na URL** para a tela dizer o que aconteceu depois
+  do redirecionamento. Clicar em "gerar" e não ver retorno é o silêncio que faz
+  a pessoa clicar de novo.
 
 Decisões da etapa 3:
 

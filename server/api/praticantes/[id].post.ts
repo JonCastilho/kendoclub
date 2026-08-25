@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Praticante não encontrado.' })
   }
 
-  const corpo = await readBody(event)
+  const corpo = (await readBody(event)) ?? {}
   // As datas de consentimento anteriores são preservadas: reaceitar não deve
   // reescrever quando o consentimento foi dado.
   const { dados, problemas } = lerFormularioDoPraticante(corpo, atual)

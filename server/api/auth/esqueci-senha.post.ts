@@ -5,7 +5,7 @@ const esquema = z.object({
 })
 
 export default defineEventHandler(async (event) => {
-  const dados = esquema.safeParse(await readBody(event))
+  const dados = esquema.safeParse((await readBody(event)) ?? {})
 
   // A resposta é sempre a mesma, com ou sem cadastro: se dissesse "e-mail não
   // encontrado", esta tela viraria um consultor gratuito de quem é do clube.

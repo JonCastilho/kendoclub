@@ -31,12 +31,21 @@ const { user } = useUserSession()
       </dl>
     </UCard>
 
+    <div class="mt-8">
+      <ULink
+        to="/minhas-mensalidades"
+        class="rounded-md bg-primary text-inverted font-medium px-4 py-2"
+      >
+        Minhas mensalidades
+      </ULink>
+    </div>
+
     <UAlert
       class="mt-8"
       color="neutral"
       variant="subtle"
       title="Próximas etapas"
-      description="Suas mensalidades, o feed do clube e a confirmação de presença em eventos chegam nas etapas 3 a 5."
+      description="Avisar que pagou, o feed do clube e a confirmação de presença em eventos chegam nas etapas 5 a 7."
     />
   </div>
 </template>

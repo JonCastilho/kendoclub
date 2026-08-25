@@ -10,7 +10,7 @@ const esquema = z.object({
 })
 
 export default defineEventHandler(async (event) => {
-  const dados = esquema.safeParse(await readBody(event))
+  const dados = esquema.safeParse((await readBody(event)) ?? {})
 
   if (!dados.success) {
     return sendRedirect(event, '/redefinir-senha?erro=dados', 303)

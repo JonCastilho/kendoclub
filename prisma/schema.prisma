@@ -64,6 +64,32 @@ enum Grau {
   DAN_8
 }
 
+/// O que a isenção cobre. Existe para que a escolha seja do clube, e não uma
+/// decisão implícita no código: "gratuidade" pode significar perdoar tudo ou só
+/// a mensalidade, e os dois casos acontecem.
+enum AbrangenciaIsencao {
+  MENSALIDADE
+  ALUGUEL
+  TUDO
+}
+
+enum TipoLinhaMensalidade {
+  MENSALIDADE
+  ALUGUEL
+  OUTRO
+}
+
+/// Quais aluguéis entram na competência. Parametrizável porque cada dojo cobra
+/// de um jeito, e a diferença é uma cláusula da consulta — não dois caminhos de
+/// cobrança. Ver PLANO.md, regras da geração.
+enum RegraCobrancaAluguel {
+  /// Só o que já existia no primeiro dia do mês: quem retira dia 20 paga a
+  /// partir do mês seguinte, e quem devolve dentro do mesmo mês não paga.
+  ABERTO_NO_PRIMEIRO_DIA
+  /// Todo aluguel que existiu em algum dia do mês.
+  ABERTO_EM_QUALQUER_DIA
+}
+
 enum SituacaoMensalidade {
   ABERTA
   PAGA
@@ -269,11 +295,12 @@ model Graduacao {
 /// dinheiro — o mês de quem tem isenção vigente gera mensalidade ISENTA, e não
 /// ausência de cobrança.
 model Isencao {
-  id       String    @id @default(cuid())
-  inicioEm DateTime
-  fimEm    DateTime?
-  motivo   String
-  criadoEm DateTime  @default(now())
+  id          String            @id @default(cuid())
+  inicioEm    DateTime
+  fimEm       DateTime?
+  motivo      String
+  abrangencia AbrangenciaIsencao @default(TUDO)
+  criadoEm    DateTime          @default(now())
 
   praticante   Praticante @relation(fields: [praticanteId], references: [id], onDelete: Cascade)
   praticanteId String
@@ -336,6 +363,8 @@ model Aluguel {
   praticante   Praticante @relation(fields: [praticanteId], references: [id], onDelete: Restrict)
   praticanteId String
 
+  linhasDeMensalidade LinhaMensalidade[]
+
   @@index([itemId, inicioEm])
   @@index([praticanteId])
 }
@@ -346,8 +375,10 @@ model Mensalidade {
   id String @id @default(cuid())
   /// Competência no formato AAAA-MM.
   competencia String
-  /// Valor cobrado na geração — não deriva de Praticante.valorMensalidade.
-  valor          Decimal             @db.Decimal(10, 2)
+  /// Soma das linhas, guardada para não precisar recalcular a cada listagem.
+  /// Cada linha carrega o valor aplicado na geração, então reajuste de
+  /// mensalidade ou de aluguel não reescreve o passado.
+  valorTotal     Decimal             @db.Decimal(10, 2)
   vencimento     DateTime
   situacao       SituacaoMensalidade @default(ABERTA)
   pagaEm         DateTime?
@@ -360,6 +391,8 @@ model Mensalidade {
   praticante   Praticante @relation(fields: [praticanteId], references: [id], onDelete: Restrict)
   praticanteId String
 
+  linhas LinhaMensalidade[]
+
   /// Quem deu a baixa. Dinheiro pede trilha — PLANO.md §11.
   baixadaPor          Usuario? @relation("BaixadaPor", fields: [baixadaPorUsuarioId], references: [id], onDelete: SetNull)
   baixadaPorUsuarioId String?
@@ -368,6 +401,26 @@ model Mensalidade {
   @@unique([praticanteId, competencia])
   @@index([situacao, vencimento])
   @@index([competencia])
+}
+
+/// Cada parcela do que se cobra no mês: a mensalidade do clube e um aluguel por
+/// item ou peça. Existe para o praticante enxergar de que se compõe o valor —
+/// e para taxa de exame ou camiseta entrarem depois sem mudar o modelo.
+model LinhaMensalidade {
+  id        String               @id @default(cuid())
+  tipo      TipoLinhaMensalidade
+  descricao String
+  valor     Decimal              @db.Decimal(10, 2)
+
+  mensalidade   Mensalidade @relation(fields: [mensalidadeId], references: [id], onDelete: Cascade)
+  mensalidadeId String
+
+  /// De qual aluguel veio a linha, quando veio de um. Serve para explicar a
+  /// cobrança depois, mesmo que o aluguel já tenha sido devolvido.
+  aluguel   Aluguel? @relation(fields: [aluguelId], references: [id], onDelete: SetNull)
+  aluguelId String?
+
+  @@index([mensalidadeId])
 }
 
 // ------------------------------------------------------------------ conteúdo
@@ -447,6 +500,8 @@ model ConfiguracaoClube {
   /// Valor sugerido ao registrar um aluguel, para o clube que cobra uma taxa
   /// única de bogu. Cada aluguel guarda o valor aplicado.
   valorAluguelPadrao Decimal @default(0) @db.Decimal(10, 2)
+
+  regraCobrancaAluguel RegraCobrancaAluguel @default(ABERTO_NO_PRIMEIRO_DIA)
   corPrimaria   String   @default("#1e3a8a")
   fusoHorario   String   @default("America/Sao_Paulo")
   atualizadoEm  DateTime @updatedAt

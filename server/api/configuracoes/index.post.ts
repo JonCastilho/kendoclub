@@ -3,7 +3,7 @@ import { interpretarValor } from '~~/shared/dinheiro'
 export default defineEventHandler(async (event) => {
   await exigirDiretoria(event)
 
-  const corpo = await readBody(event)
+  const corpo = (await readBody(event)) ?? {}
   const voltar = '/configuracoes'
 
   const nomeClube = texto(corpo.nomeClube)
@@ -23,7 +23,12 @@ export default defineEventHandler(async (event) => {
 
   if (problemas.length > 0) return responderErro(event, problemas, voltar)
 
+  const regra = texto(corpo.regraCobrancaAluguel) === 'ABERTO_EM_QUALQUER_DIA'
+    ? 'ABERTO_EM_QUALQUER_DIA' as const
+    : 'ABERTO_NO_PRIMEIRO_DIA' as const
+
   const dados = {
+    regraCobrancaAluguel: regra,
     nomeClube,
     emailContato: opcional(corpo.emailContato),
     chavePix: opcional(corpo.chavePix),

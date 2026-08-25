@@ -42,6 +42,12 @@ const { data: resumo } = await useFetch('/api/painel/resumo')
         Praticantes
       </ULink>
       <ULink
+        to="/mensalidades"
+        class="rounded-md bg-primary text-inverted font-medium px-4 py-2"
+      >
+        Mensalidades
+      </ULink>
+      <ULink
         to="/itens"
         class="rounded-md border border-default px-4 py-2"
       >

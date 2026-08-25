@@ -2,7 +2,7 @@ export default defineEventHandler(async (event) => {
   const usuario = await exigirDiretoria(event)
 
   const id = getRouterParam(event, 'id')!
-  const corpo = await readBody(event)
+  const corpo = (await readBody(event)) ?? {}
   const voltar = `/praticantes/${id}`
   const prisma = usePrisma()
 
@@ -19,6 +19,10 @@ export default defineEventHandler(async (event) => {
 
   const inicioEm = dataUtc(corpo.inicioEm)
   const motivo = texto(corpo.motivo)
+  const informada = texto(corpo.abrangencia)
+  const abrangencia = informada === 'MENSALIDADE' || informada === 'ALUGUEL'
+    ? informada
+    : 'TUDO' as const
 
   if (!inicioEm) return responderErro(event, ['Informe o início da isenção.'], voltar)
   // Isenção mexe em dinheiro: sem motivo registrado, ninguém consegue explicar
@@ -36,6 +40,7 @@ export default defineEventHandler(async (event) => {
       inicioEm,
       fimEm: dataUtc(corpo.fimEm),
       motivo,
+      abrangencia,
       // Quem concedeu fica registrado, como na baixa de pagamento.
       concedidaPorUsuarioId: usuario.id,
     },

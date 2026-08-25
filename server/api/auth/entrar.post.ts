@@ -32,7 +32,7 @@ function destinoSeguro(destino: string | undefined, padrao: string): string {
 }
 
 export default defineEventHandler(async (event) => {
-  const corpo = await readBody(event)
+  const corpo = (await readBody(event)) ?? {}
   const dados = esquema.safeParse(corpo)
 
   if (!dados.success) {

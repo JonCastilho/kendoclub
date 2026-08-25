@@ -26,6 +26,12 @@ const disponiveis = computed(() => {
   return (modalidades.value ?? []).filter(m => m.ativa && !jaTem.has(m.id))
 })
 
+const ABRANGENCIAS: Record<string, string> = {
+  MENSALIDADE: 'só a mensalidade',
+  ALUGUEL: 'só os aluguéis',
+  TUDO: 'mensalidade e aluguéis',
+}
+
 const classeCampo = 'rounded-md border border-default bg-default px-3 py-2'
 const classeBotao = 'rounded-md border border-default px-3 py-2 text-sm'
 </script>
@@ -464,6 +470,7 @@ const classeBotao = 'rounded-md border border-default px-3 py-2 text-sm'
           <span>
             {{ data(isencao.inicioEm) }} até {{ isencao.fimEm ? data(isencao.fimEm) : 'hoje' }}
             · {{ isencao.motivo }}
+            <span class="text-muted">· cobre {{ ABRANGENCIAS[isencao.abrangencia] }}</span>
           </span>
           <form
             v-if="!isencao.fimEm"
@@ -509,6 +516,21 @@ const classeBotao = 'rounded-md border border-default px-3 py-2 text-sm'
           required
           class="flex-1 min-w-60 rounded-md border border-default bg-default px-3 py-2"
         >
+        <select
+          name="abrangencia"
+          :class="classeCampo"
+          title="O que a gratuidade cobre"
+        >
+          <option value="TUDO">
+            cobre mensalidade e aluguéis
+          </option>
+          <option value="MENSALIDADE">
+            cobre só a mensalidade
+          </option>
+          <option value="ALUGUEL">
+            cobre só os aluguéis
+          </option>
+        </select>
         <button
           type="submit"
           :class="classeBotao"
