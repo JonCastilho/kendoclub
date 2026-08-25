@@ -14,6 +14,10 @@ export default defineEventHandler(async (event) => {
       modalidades: { include: { modalidade: true } },
       graduacoes: { include: { modalidade: true }, orderBy: { obtidaEm: 'desc' } },
       isencoes: { orderBy: { inicioEm: 'desc' } },
+      alugueis: {
+        orderBy: { inicioEm: 'desc' },
+        include: { item: { select: { id: true, nome: true, identificador: true } } },
+      },
     },
   })
 
@@ -36,8 +40,25 @@ export default defineEventHandler(async (event) => {
     }
   })
 
+  // Itens livres para vincular, e o valor sugerido do clube: o aluguel também
+  // nasce aqui, para o dojo que não cadastra item nenhum.
+  const [itensLivres, clube] = await Promise.all([
+    prisma.item.findMany({
+      where: { situacao: 'DISPONIVEL', alugueis: { none: { fimEm: null } } },
+      select: { id: true, nome: true, identificador: true, valorMensalAluguel: true },
+      orderBy: { nome: 'asc' },
+    }),
+    prisma.configuracaoClube.findUnique({
+      where: { id: 1 },
+      select: { valorAluguelPadrao: true },
+    }),
+  ])
+
   return {
     ...praticante,
+    itensLivres,
+    valorAluguelPadrao: clube?.valorAluguelPadrao ?? 0,
+    alugueisAbertos: praticante.alugueis.filter(a => !a.fimEm),
     filiado: estaFiliado(praticante.filiacoes),
     noClubeDesde: primeiraFiliacaoEm(praticante.filiacoes),
     modalidadesComGraduacao: atuais,

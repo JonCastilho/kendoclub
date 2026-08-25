@@ -76,6 +76,16 @@ enum Visibilidade {
   RESTRITA // somente quem está logado
 }
 
+/// Estado administrativo do item. "Alugado" não entra aqui de propósito: isso é
+/// consequência de existir aluguel em aberto, e um campo separado acabaria
+/// discordando da realidade — o mesmo motivo pelo qual o praticante não tem
+/// campo de situação.
+enum SituacaoItem {
+  DISPONIVEL
+  MANUTENCAO
+  BAIXADO
+}
+
 enum SituacaoConfirmacao {
   VOU
   NAO_VOU
@@ -182,6 +192,7 @@ model Praticante {
   modalidades  PraticanteModalidade[]
   graduacoes   Graduacao[]
   isencoes     Isencao[]
+  alugueis     Aluguel[]
   mensalidades Mensalidade[]
   confirmacoes ConfirmacaoPresenca[]
 
@@ -271,6 +282,62 @@ model Isencao {
   concedidaPorUsuarioId String?
 
   @@index([praticanteId, inicioEm])
+}
+
+// ------------------------------------------------------------ itens alugáveis
+
+/// Equipamento do clube emprestado a praticantes — bogu, principalmente.
+model Item {
+  id            String       @id @default(cuid())
+  nome          String
+  /// Número de patrimônio ou etiqueta, para diferenciar dois bogus iguais.
+  identificador String?
+  tipo          String?
+  situacao      SituacaoItem @default(DISPONIVEL)
+  observacoes   String?
+  criadoEm      DateTime     @default(now())
+  atualizadoEm  DateTime     @updatedAt
+
+  /// Valor mensal cobrado pelo aluguel. Cada aluguel copia este valor no
+  /// momento da contratação, então reajuste não reescreve o que já foi cobrado.
+  valorMensalAluguel Decimal @default(0) @db.Decimal(10, 2)
+
+  alugueis Aluguel[]
+
+  @@index([situacao])
+  @@index([nome])
+}
+
+/// Período em que um item esteve com um praticante.
+///
+/// A migration cria um índice parcial garantindo um único aluguel aberto por
+/// item: sem isso, o mesmo bogu poderia constar com duas pessoas ao mesmo tempo,
+/// e a mensalidade cobraria os dois.
+model Aluguel {
+  id         String    @id @default(cuid())
+  inicioEm   DateTime
+  fimEm      DateTime?
+  observacao String?
+  criadoEm   DateTime  @default(now())
+
+  /// Valor vigente na contratação. Ver comentário em Item.valorMensalAluguel.
+  valorMensal Decimal @db.Decimal(10, 2)
+
+  /// O que está alugado, em texto livre — "Bogu", "Kote", "Men".
+  ///
+  /// Existe porque nem todo dojo controla patrimônio: o clube que só quer somar
+  /// a taxa de aluguel na mensalidade registra a descrição e não cadastra item
+  /// nenhum. Quem controla vincula o item e ganha o "quem está com o quê" por
+  /// cima do mesmo registro. Um caminho de código só, com ou sem inventário.
+  descricao String?
+
+  item         Item?      @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  itemId       String?
+  praticante   Praticante @relation(fields: [praticanteId], references: [id], onDelete: Restrict)
+  praticanteId String
+
+  @@index([itemId, inicioEm])
+  @@index([praticanteId])
 }
 
 // -------------------------------------------------------------- mensalidades
@@ -376,6 +443,10 @@ model ConfiguracaoClube {
   /// guarda o valor aplicado, então reajuste não reescreve o passado.
   valorMensalidade Decimal @default(0) @db.Decimal(10, 2)
   diaVencimento    Int     @default(10)
+
+  /// Valor sugerido ao registrar um aluguel, para o clube que cobra uma taxa
+  /// única de bogu. Cada aluguel guarda o valor aplicado.
+  valorAluguelPadrao Decimal @default(0) @db.Decimal(10, 2)
   corPrimaria   String   @default("#1e3a8a")
   fusoHorario   String   @default("America/Sao_Paulo")
   atualizadoEm  DateTime @updatedAt

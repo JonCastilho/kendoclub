@@ -82,9 +82,9 @@ Isencao               id, praticanteId, inicioEm, fimEm?, motivo,
                       concedidaPorUsuarioId
 
 Item                  id, nome, identificador? (patrimônio), tipo?,
-                      situacao (DISPONIVEL|ALUGADO|MANUTENCAO|BAIXADO),
+                      situacao (DISPONIVEL|MANUTENCAO|BAIXADO),
                       valorMensalAluguel, observacoes?
-Aluguel               id, itemId, praticanteId, inicioEm, fimEm?,
+Aluguel               id, praticanteId, itemId?, descricao?, inicioEm, fimEm?,
                       valorMensal, observacao?
 
 Mensalidade           id, praticanteId, competencia (AAAA-MM), vencimento,
@@ -102,7 +102,7 @@ Evento                id, titulo, slug, descricao (markdown), inicioEm, fimEm?,
 ConfirmacaoPresenca   id, eventoId, praticanteId,
                       situacao (VOU|NAO_VOU|TALVEZ), atualizadoEm
 ConfiguracaoClube     nomeClube, logo?, chavePix, titularPix, emailContato,
-                      valorMensalidade, diaVencimento,
+                      valorMensalidade, diaVencimento, valorAluguelPadrao,
                       fusoHorario (America/Sao_Paulo), corPrimaria
 ```
 
@@ -278,7 +278,32 @@ As etapas 1 a 6 já são utilizáveis pelo seu clube antes de a 7 existir. A eta
 Os itens alugáveis vêm **antes** das mensalidades porque a cobrança do mês inclui
 linha de aluguel: sem aluguel cadastrado, não há o que somar.
 
-**Concluídas:** etapas 0, 1 e 2 (agosto de 2026).
+**Concluídas:** etapas 0, 1, 2 e 3 (agosto de 2026).
+
+Decisões da etapa 3:
+
+- **O item é opcional no aluguel.** Nem todo dojo controla patrimônio, e bogu é
+  um conjunto de peças que muitas vezes se aluga separado — kote hoje, men mês
+  que vem. Quem só quer somar a taxa na mensalidade registra a descrição livre
+  ("Kote") e nunca cadastra item nenhum; quem controla vincula o item e ganha o
+  "quem está com o quê" por cima do mesmo registro.
+  *Por que não um modo simples com um `alugaBogu` booleano:* o booleano não
+  guarda desde quando, apaga o histórico quando desmarcado e não comporta valores
+  diferentes por peça — os mesmos três motivos que fizeram filiação e isenção
+  virarem períodos. E dois modos seriam dois caminhos de cobrança para manter.
+- **O aluguel nasce também da ficha do praticante**, não só da página do item —
+  que não existe para quem não cadastra itens.
+- **`ALUGADO` saiu da situação do item.** O enum previsto misturava estado
+  administrativo (manutenção, baixado) com estado derivado (alugado), que é
+  exatamente o erro corrigido no praticante. "Alugado" é consequência de existir
+  aluguel em aberto, e um índice parcial garante um único aberto por item.
+- **Praticante desligado não aluga.** A partir da etapa 4 o aluguel vira linha de
+  cobrança; permitir geraria mensalidade para quem não é mais do clube.
+- **A ficha do praticante avisa quais itens do clube estão com ele**, que é o que
+  a diretoria precisa ver antes de desligar alguém.
+- **Valores entram no formato brasileiro.** "120,50", "1.234,56" e "120.50" são
+  aceitos; o que não dá para entender é recusado, em vez de virar um número que
+  ninguém quis.
 
 Decisões da etapa 2:
 

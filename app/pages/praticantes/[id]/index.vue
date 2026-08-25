@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { grausDaModalidade, rotuloDoGrau } from '~~/shared/graduacao'
+import { descricaoDoAluguel } from '~~/shared/aluguel'
+import { formatarReais } from '~~/shared/dinheiro'
 
 definePageMeta({ middleware: 'diretoria' })
 
@@ -117,6 +119,34 @@ const classeBotao = 'rounded-md border border-default px-3 py-2 text-sm'
       title="Observações médicas"
       :description="praticante.observacoesMedicas"
     />
+
+    <!-- Equipamento em poder do praticante: é o que a diretoria precisa ver
+         antes de desligar alguém, para não deixar bogu do clube na rua. -->
+    <UAlert
+      v-if="praticante.alugueisAbertos.length"
+      class="mt-4"
+      color="info"
+      variant="subtle"
+      :title="`${praticante.alugueisAbertos.length} aluguel(is) em andamento`"
+    >
+      <template #description>
+        <ul class="list-disc pl-4">
+          <li
+            v-for="aluguel in praticante.alugueisAbertos"
+            :key="aluguel.id"
+          >
+            <ULink
+              v-if="aluguel.item"
+              :to="`/itens/${aluguel.item.id}`"
+            >
+              {{ descricaoDoAluguel(aluguel) }}
+            </ULink>
+            <span v-else>{{ descricaoDoAluguel(aluguel) }}</span>
+            · {{ formatarReais(aluguel.valorMensal) }}/mês desde {{ data(aluguel.inicioEm) }}
+          </li>
+        </ul>
+      </template>
+    </UAlert>
 
     <section class="mt-10">
       <h2 class="font-semibold mb-3">
@@ -296,6 +326,123 @@ const classeBotao = 'rounded-md border border-default px-3 py-2 text-sm'
           :class="classeBotao"
         >
           Adicionar modalidade
+        </button>
+      </form>
+    </section>
+
+    <section class="mt-10">
+      <h2 class="font-semibold mb-3">
+        Aluguéis
+      </h2>
+
+      <ul
+        v-if="praticante.alugueis.length"
+        class="text-sm divide-y divide-default border-y border-default mb-3"
+      >
+        <li
+          v-for="aluguel in praticante.alugueis"
+          :key="aluguel.id"
+          class="py-2 flex items-center justify-between gap-4 flex-wrap"
+        >
+          <span>
+            {{ descricaoDoAluguel(aluguel) }}
+            <span class="text-muted">
+              · {{ formatarReais(aluguel.valorMensal) }}/mês
+              · {{ data(aluguel.inicioEm) }} até
+              {{ aluguel.fimEm ? data(aluguel.fimEm) : 'hoje' }}
+            </span>
+          </span>
+
+          <form
+            v-if="!aluguel.fimEm"
+            method="post"
+            :action="`/api/praticantes/${id}/alugueis`"
+            class="flex gap-2 flex-wrap"
+          >
+            <input
+              type="hidden"
+              name="acao"
+              value="devolver"
+            >
+            <input
+              type="hidden"
+              name="aluguelId"
+              :value="aluguel.id"
+            >
+            <input
+              type="date"
+              name="fimEm"
+              :value="hoje"
+              required
+              :class="classeCampo"
+            >
+            <button
+              type="submit"
+              :class="classeBotao"
+            >
+              Devolver
+            </button>
+          </form>
+        </li>
+      </ul>
+
+      <!-- Aluguel nasce aqui também, e não só na página do item: o dojo que não
+           controla patrimônio nunca cadastra item nenhum. -->
+      <form
+        v-if="praticante.filiado"
+        method="post"
+        :action="`/api/praticantes/${id}/alugueis`"
+        class="flex gap-2 flex-wrap items-end"
+      >
+        <div>
+          <label class="block text-sm font-medium mb-1">O que está alugando</label>
+          <input
+            name="descricao"
+            placeholder="Bogu, Kote, Men…"
+            :class="classeCampo"
+          >
+        </div>
+        <div v-if="praticante.itensLivres.length">
+          <label class="block text-sm font-medium mb-1">Item do patrimônio (opcional)</label>
+          <select
+            name="itemId"
+            :class="classeCampo"
+          >
+            <option value="">
+              sem vincular
+            </option>
+            <option
+              v-for="item in praticante.itensLivres"
+              :key="item.id"
+              :value="item.id"
+            >
+              {{ item.nome }}{{ item.identificador ? ` (${item.identificador})` : '' }}
+            </option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Valor mensal</label>
+          <input
+            name="valorMensal"
+            :value="String(praticante.valorAluguelPadrao)"
+            :class="classeCampo"
+          >
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">Desde</label>
+          <input
+            type="date"
+            name="inicioEm"
+            :value="hoje"
+            required
+            :class="classeCampo"
+          >
+        </div>
+        <button
+          type="submit"
+          :class="classeBotao"
+        >
+          Registrar aluguel
         </button>
       </form>
     </section>

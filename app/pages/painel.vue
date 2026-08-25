@@ -42,10 +42,22 @@ const { data: resumo } = await useFetch('/api/painel/resumo')
         Praticantes
       </ULink>
       <ULink
+        to="/itens"
+        class="rounded-md border border-default px-4 py-2"
+      >
+        Itens alugáveis
+      </ULink>
+      <ULink
         to="/modalidades"
         class="rounded-md border border-default px-4 py-2"
       >
         Modalidades
+      </ULink>
+      <ULink
+        to="/configuracoes"
+        class="rounded-md border border-default px-4 py-2"
+      >
+        Configurações
       </ULink>
     </div>
 
