@@ -34,12 +34,27 @@ const { data: resumo } = await useFetch('/api/painel/resumo')
       </UCard>
     </div>
 
+    <div class="mt-8 flex gap-3 flex-wrap">
+      <ULink
+        to="/praticantes"
+        class="rounded-md bg-primary text-inverted font-medium px-4 py-2"
+      >
+        Praticantes
+      </ULink>
+      <ULink
+        to="/modalidades"
+        class="rounded-md border border-default px-4 py-2"
+      >
+        Modalidades
+      </ULink>
+    </div>
+
     <UAlert
       class="mt-8"
       color="neutral"
       variant="subtle"
-      title="Próxima etapa"
-      description="O cadastro de praticantes e as mensalidades entram nas etapas 2 e 3."
+      title="Próximas etapas"
+      description="Itens alugáveis e mensalidades entram nas etapas 3 e 4."
     />
   </div>
 </template>

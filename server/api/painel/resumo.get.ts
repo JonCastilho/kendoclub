@@ -5,7 +5,8 @@ export default defineEventHandler(async (event) => {
 
   const prisma = usePrisma()
   const [praticantesAtivos, contasAtivas, clube] = await Promise.all([
-    prisma.praticante.count({ where: { situacao: 'ATIVO' } }),
+    // Filiado é quem tem período em aberto — a situação é derivada, não um campo.
+    prisma.praticante.count({ where: { filiacoes: { some: { fimEm: null } } } }),
     prisma.usuario.count({ where: { ativo: true } }),
     prisma.configuracaoClube.findUnique({ where: { id: 1 }, select: { nomeClube: true } }),
   ])

@@ -22,14 +22,30 @@ enum Papel {
   PRATICANTE
 }
 
-enum SituacaoPraticante {
-  ATIVO
-  AFASTADO
-  DESLIGADO
+/// Existe para inscrição em campeonato, onde as chaves são separadas.
+enum Sexo {
+  FEMININO
+  MASCULINO
 }
 
-/// Graduações. Clubes com turma infantil costumam usar kyu acima do 6º.
+enum TipoDocumento {
+  CPF
+  DOCUMENTO_ESTRANGEIRO
+}
+
+/// De quem é o documento. Menor sem CPF é cadastrado com o do responsável, e
+/// nesse caso o número se repete entre irmãos — por isso a unicidade só vale
+/// para PROPRIO, por índice parcial criado na migration.
+enum TitularDocumento {
+  PROPRIO
+  RESPONSAVEL
+}
+
+/// Faixa máxima possível. Onde a lista começa em cada modalidade é decidido por
+/// Modalidade.kyuInicial — assim mudar a faixa não vira migração de banco.
 enum Grau {
+  KYU_10
+  KYU_9
   KYU_8
   KYU_7
   KYU_6
@@ -86,6 +102,7 @@ model Usuario {
   publicacoes         Publicacao[]           @relation("AutorPublicacao")
   eventosCriados      Evento[]               @relation("CriadorEvento")
   mensalidadesBaixadas Mensalidade[]         @relation("BaixadaPor")
+  isencoesConcedidas  Isencao[]              @relation("IsencaoConcedidaPor")
   tokensRedefinicao   TokenRedefinicaoSenha[]
 
   @@index([papel])
@@ -107,37 +124,121 @@ model TokenRedefinicaoSenha {
 // --------------------------------------------------------------- praticantes
 
 model Praticante {
-  id             String             @id @default(cuid())
+  id             String   @id @default(cuid())
   nomeCompleto   String
-  dataNascimento DateTime?
-  telefone       String?
-  email          String?
-  endereco       String?
-  situacao       SituacaoPraticante @default(ATIVO)
-  ingressouEm    DateTime           @default(now())
-  desligadoEm    DateTime?
-  observacoes    String?
-  criadoEm       DateTime           @default(now())
-  atualizadoEm   DateTime           @updatedAt
+  dataNascimento DateTime
+  sexo           Sexo
+  nacionalidade  String   @default("Brasileira")
+  criadoEm       DateTime @default(now())
+  atualizadoEm   DateTime @updatedAt
+
+  /// Documento, e não "CPF": aceita também documento estrangeiro. A conferência
+  /// dos dígitos verificadores só roda quando tipoDocumento é CPF. CPF é
+  /// guardado apenas com os números.
+  documento        String
+  tipoDocumento    TipoDocumento    @default(CPF)
+  titularDocumento TitularDocumento @default(PROPRIO)
+
+  // Contato. Este e-mail é de contato e pode repetir entre irmãos; o e-mail
+  // único é o da conta de acesso, em Usuario.
+  email                String
+  telefone             String
+  telefoneAlternativo  String?
+
+  // Endereço decomposto, para servir de correspondência.
+  cep         String?
+  logradouro  String?
+  numero      String?
+  complemento String?
+  bairro      String?
+  cidade      String?
+  uf          String?
+
+  /// Contato de emergência. Par natural das observações médicas: é o que serve
+  /// na hora do problema, no dojo.
+  emergenciaNome       String?
+  emergenciaTelefone   String?
+  emergenciaParentesco String?
 
   /// Responsável, para praticantes menores de idade.
   responsavelNome     String?
   responsavelTelefone String?
-  /// Quando o responsável autorizou o tratamento dos dados (LGPD).
+
+  /// DADO SENSÍVEL (LGPD art. 5º, II). Nunca sai em listagem nem em exportação,
+  /// e só a diretoria enxerga. Ver PLANO.md §11.
+  observacoesMedicas String?
+
+  iniciouPraticaEm DateTime?
+  observacoes      String?
+
+  // Consentimentos, cada um com sua data de aceite.
+  consentimentoDadosEm       DateTime?
+  consentimentoSaudeEm       DateTime?
+  autorizacaoImagemEm        DateTime?
   responsavelConsentimentoEm DateTime?
 
-  /// Mensalidade vigente. O histórico fica em Mensalidade.valor — PLANO.md §4.
-  valorMensalidade Decimal @default(0) @db.Decimal(10, 2)
-
   usuario      Usuario?
+  filiacoes    Filiacao[]
+  modalidades  PraticanteModalidade[]
   graduacoes   Graduacao[]
+  isencoes     Isencao[]
   mensalidades Mensalidade[]
   confirmacoes ConfirmacaoPresenca[]
 
-  @@index([situacao])
   @@index([nomeCompleto])
+  @@index([documento])
 }
 
+/// Período de vínculo com o clube. Quem se desliga e volta ganha uma linha nova,
+/// e o tempo de casa anterior fica preservado. A situação atual é derivada:
+/// filiação em aberto significa filiado.
+///
+/// A migration cria um índice parcial garantindo no máximo uma filiação aberta
+/// por praticante — regra que o banco sustenta, não só a tela.
+model Filiacao {
+  id         String    @id @default(cuid())
+  inicioEm   DateTime
+  fimEm      DateTime?
+  motivoSaida String?
+  criadoEm   DateTime  @default(now())
+
+  praticante   Praticante @relation(fields: [praticanteId], references: [id], onDelete: Cascade)
+  praticanteId String
+
+  @@index([praticanteId, inicioEm])
+}
+
+model Modalidade {
+  id    String  @id @default(cuid())
+  nome  String  @unique
+  ativa Boolean @default(true)
+
+  /// Kyu mais alto usado nesta modalidade (6 significa "começa no 6º kyu").
+  /// Kendo costuma começar no 6º; iaido, no 5º.
+  kyuInicial Int @default(6)
+
+  criadoEm DateTime @default(now())
+
+  praticantes PraticanteModalidade[]
+  graduacoes  Graduacao[]
+}
+
+model PraticanteModalidade {
+  id    String    @id @default(cuid())
+  desde DateTime
+  ate   DateTime?
+
+  praticante   Praticante @relation(fields: [praticanteId], references: [id], onDelete: Cascade)
+  praticanteId String
+  modalidade   Modalidade @relation(fields: [modalidadeId], references: [id], onDelete: Restrict)
+  modalidadeId String
+
+  @@unique([praticanteId, modalidadeId])
+}
+
+/// Graduação por modalidade: um 3º dan de kendo pode ser 1º dan de iaido.
+/// A graduação atual é a mais recente de cada modalidade, e não um campo — campo
+/// "grau atual" um dia discorda do histórico.
 model Graduacao {
   id          String   @id @default(cuid())
   grau        Grau
@@ -147,8 +248,29 @@ model Graduacao {
 
   praticante   Praticante @relation(fields: [praticanteId], references: [id], onDelete: Cascade)
   praticanteId String
+  modalidade   Modalidade @relation(fields: [modalidadeId], references: [id], onDelete: Restrict)
+  modalidadeId String
 
-  @@index([praticanteId, obtidaEm])
+  @@index([praticanteId, modalidadeId, obtidaEm])
+}
+
+/// Gratuidade de mensalidade. Tem vigência, motivo e responsável porque mexe em
+/// dinheiro — o mês de quem tem isenção vigente gera mensalidade ISENTA, e não
+/// ausência de cobrança.
+model Isencao {
+  id       String    @id @default(cuid())
+  inicioEm DateTime
+  fimEm    DateTime?
+  motivo   String
+  criadoEm DateTime  @default(now())
+
+  praticante   Praticante @relation(fields: [praticanteId], references: [id], onDelete: Cascade)
+  praticanteId String
+
+  concedidaPor       Usuario? @relation("IsencaoConcedidaPor", fields: [concedidaPorUsuarioId], references: [id], onDelete: SetNull)
+  concedidaPorUsuarioId String?
+
+  @@index([praticanteId, inicioEm])
 }
 
 // -------------------------------------------------------------- mensalidades
@@ -249,6 +371,11 @@ model ConfiguracaoClube {
   emailContato  String?
   chavePix      String?
   titularPix    String?
+
+  /// Mensalidade do clube: valor único para todos. Cada mensalidade gerada
+  /// guarda o valor aplicado, então reajuste não reescreve o passado.
+  valorMensalidade Decimal @default(0) @db.Decimal(10, 2)
+  diaVencimento    Int     @default(10)
   corPrimaria   String   @default("#1e3a8a")
   fusoHorario   String   @default("America/Sao_Paulo")
   atualizadoEm  DateTime @updatedAt

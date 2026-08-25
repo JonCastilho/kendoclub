@@ -278,7 +278,26 @@ As etapas 1 a 6 já são utilizáveis pelo seu clube antes de a 7 existir. A eta
 Os itens alugáveis vêm **antes** das mensalidades porque a cobrança do mês inclui
 linha de aluguel: sem aluguel cadastrado, não há o que somar.
 
-**Concluídas:** etapas 0 e 1 (agosto de 2026).
+**Concluídas:** etapas 0, 1 e 2 (agosto de 2026).
+
+Decisões da etapa 2:
+
+- **Duas regras vivem no banco, não só na tela**, por índices parciais escritos à
+  mão na migration: no máximo uma filiação aberta por praticante, e documento
+  único apenas quando é do próprio. O Prisma não expressa índice parcial, então a
+  tradução do erro de violação casa pelo **nome do índice** — a mensagem do
+  Postgres vem no idioma do servidor, e `meta.target` chega vazio nesse caso.
+- **Formulário longo envia por JavaScript quando ele existe**, para que um erro
+  de validação não apague o que foi digitado; sem JavaScript, o `method="post"`
+  continua valendo e o servidor responde com redirecionamento. Os endpoints
+  devolvem JSON ou redirecionam conforme o cabeçalho `accept`.
+- **Datas de calendário são gravadas como meia-noite UTC.** No horário de
+  Brasília, gravar e reexibir uma data local mostraria o dia anterior — e data de
+  nascimento e de filiação são dias, não instantes.
+- **Consentimento registrado não é reescrito** ao salvar de novo: a data guardada
+  é a do primeiro aceite.
+- **Desvincular modalidade não apaga graduações.** O histórico de exames é do
+  praticante e não some porque ele parou de treinar aquela modalidade.
 
 Decisões da etapa 1, registradas para não serem desfeitas por engano:
 

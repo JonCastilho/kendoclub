@@ -69,6 +69,15 @@ async function principal(): Promise<void> {
       prisma.usuario.create({
         data: { email, senhaHash: await gerarHashDeSenha(senha), papel: 'DIRETORIA' },
       }),
+      // Modalidades de partida. Kendo costuma começar no 6º kyu e iaido no 5º;
+      // qualquer clube ajusta, renomeia ou desativa na tela de modalidades.
+      prisma.modalidade.createMany({
+        data: [
+          { nome: 'Kendo', kyuInicial: 6 },
+          { nome: 'Iaido', kyuInicial: 5 },
+        ],
+        skipDuplicates: true,
+      }),
     ])
 
     console.log([

@@ -44,8 +44,9 @@ npm run dev
 
 A aplicação sobe em <http://localhost:3000>.
 
-O `setup` cria a conta inicial da diretoria e **mostra uma senha sorteada uma
-única vez** — guarde-a nesse momento. Não existe senha padrão no código: se
+O `setup` cria a conta inicial da diretoria, as modalidades de partida (Kendo e
+Iaido, que podem ser renomeadas ou desativadas depois) e **mostra uma senha
+sorteada uma única vez** — guarde-a nesse momento. Não existe senha padrão no código: se
 existisse, toda instalação deste sistema nasceria com a mesma credencial, e ela
 estaria publicada aqui.
 
