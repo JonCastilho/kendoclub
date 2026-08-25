@@ -268,15 +268,76 @@ armazenamento S3-compatível fica como opção posterior atrás da mesma interfa
 | 2 | Praticantes: cadastro completo, filiações, modalidades (Kendo e Iaido), graduações, isenções, busca e filtros | A diretoria cadastra o quadro inteiro do clube |
 | 3 | Itens alugáveis: cadastro de itens e controle de aluguel por praticante | Sabe-se quem está com qual bogu, desde quando e por quanto |
 | 4 | Mensalidades: geração do mês com linhas, baixa, inadimplência, visão do praticante com Pix | Fecha um mês inteiro de cobrança sem planilha |
-| 5 | Newsfeed: posts públicos e restritos, home pública, imagem de capa | O clube publica e o post aparece só para quem deve ver |
-| 6 | Eventos: cadastro, agenda, confirmação de presença, lista de confirmados | Um campeonato real é divulgado e confirmado pelo app |
-| 7 | Empacotamento: Docker, docs de instalação, dados de demonstração, CI | Outro clube instala seguindo só o README |
+| 5 | Declaração de pagamento: o praticante avisa que pagou, a diretoria confere e dá baixa | A conferência sai do WhatsApp e vira fila no sistema |
+| 6 | Newsfeed: posts públicos e restritos, home pública, imagem de capa | O clube publica e o post aparece só para quem deve ver |
+| 7 | Eventos: cadastro, agenda, confirmação de presença, lista de confirmados | Um campeonato real é divulgado e confirmado pelo app |
+| 8 | Empacotamento: Docker, docs de instalação, dados de demonstração, CI | Outro clube instala seguindo só o README |
 
-As etapas 1 a 6 já são utilizáveis pelo seu clube antes de a 7 existir. A etapa 7
+As etapas 1 a 7 já são utilizáveis pelo seu clube antes de a 8 existir. A etapa 8
 é o que transforma "meu sistema" em "software que outro clube usa".
 
 Os itens alugáveis vêm **antes** das mensalidades porque a cobrança do mês inclui
 linha de aluguel: sem aluguel cadastrado, não há o que somar.
+
+### Regras da geração de mensalidade (etapa 4)
+
+- **Quem se filia no meio do mês só paga a partir do mês seguinte.** Não há
+  cálculo proporcional — a geração olha quem estava filiado no primeiro dia da
+  competência.
+- Quem tem **isenção vigente** gera mensalidade com situação `ISENTA`, e não
+  ausência de cobrança: buraco no histórico ninguém sabe explicar depois.
+- Quem **não está filiado** no início da competência não gera nada.
+- A cobrança é a soma de **linhas**: a mensalidade do clube mais um aluguel por
+  item ou peça em aberto, cada linha com o valor combinado na contratação.
+- **Quais aluguéis entram no mês é parametrizável**, em
+  `ConfiguracaoClube.regraCobrancaAluguel`:
+  - `ABERTO_NO_PRIMEIRO_DIA` (padrão) — só entra o aluguel que já existia no
+    primeiro dia da competência. Quem retira dia 20 paga a partir do mês
+    seguinte, e quem retira e devolve dentro do mesmo mês não é cobrado.
+  - `ABERTO_EM_QUALQUER_DIA` — entra todo aluguel que existiu em algum dia do
+    mês. Mais favorável ao clube e mais difícil de explicar ao praticante.
+
+  *Por que este vira parâmetro e o controle de patrimônio não virou:* aqui muda
+  uma cláusula da consulta, com a mesma tela, o mesmo cálculo e um caso a mais
+  de teste. Lá seriam dois caminhos de cobrança para manter. Parâmetro barato
+  se justifica; modo, não.
+
+  A regra da **filiação** no meio do mês continua fixa (paga no mês seguinte).
+  Torná-la proporcional não seria um parâmetro barato: mudaria o cálculo do
+  valor, e não a seleção de quem entra.
+
+### Declaração de pagamento (etapa 5)
+
+O fluxo já existe no clube, só que no WhatsApp: o praticante paga o Pix, manda o
+print para o tesoureiro, e ele confere e anota. A etapa traz isso para dentro do
+sistema — sem mudar quem decide.
+
+- **A baixa continua sendo da diretoria.** O praticante declara o pagamento; a
+  confirmação é ato de quem responde por ela, com registro de quem confirmou e
+  quando. Se declarar desse baixa, bastaria dizer que pagou.
+- **Começa sem arquivo:** "paguei em DD/MM" já tira a conversa do WhatsApp e dá
+  à diretoria uma fila do que conferir, sem guardar dado financeiro de ninguém.
+  O anexo de comprovante vem depois, se a declaração sozinha não bastar.
+- **"Em análise" é derivado**, não é situação nova da mensalidade: é cobrança
+  aberta com declaração pendente de conferência.
+
+Sobre anexar o comprovante, quando chegar a hora — levantamento de agosto/2026:
+
+- **Armazenamento não é o custo.** Com 12 cobranças por ano por praticante e
+  500 KB por arquivo, um clube de 100 gera 600 MB/ano; em cinco anos, 3 GB. Cabe
+  no disco gratuito da Oracle Always Free (200 GB) e na cota grátis do
+  Cloudflare R2 (10 GB). Acima disso, 6 GB custam cerca de US$ 0,09 por mês.
+- **O custo está na LGPD.** Comprovante de Pix mostra nome, banco e chave, e
+  print de tela às vezes mostra saldo e outras transações — inclusive de um pai
+  que paga pelo filho, alguém que nem é do clube. Exige acesso restrito e
+  **prazo de descarte**: apagar o arquivo algum tempo depois da baixa, mantendo
+  o registro do pagamento. O que tem valor contábil é a baixa, não a imagem.
+- **E no backup**, que deixa de ser um `pg_dump` de texto e passa a ter duas
+  partes que precisam ser restauradas coerentes.
+- **Sem compressão no servidor.** Reduzir um custo que já é zero não paga uma
+  dependência com binário nativo. Limite de tamanho por arquivo resolve.
+- Entrega sempre por rota autenticada que confere de quem é a cobrança; nunca
+  pasta pública. Tipo validado pelos bytes, não pela extensão.
 
 **Concluídas:** etapas 0, 1, 2 e 3 (agosto de 2026).
 
