@@ -216,7 +216,6 @@ model Praticante {
   usuario      Usuario?
   filiacoes    Filiacao[]
   modalidades  PraticanteModalidade[]
-  graduacoes   Graduacao[]
   isencoes     Isencao[]
   alugueis     Aluguel[]
   mensalidades Mensalidade[]
@@ -257,13 +256,22 @@ model Modalidade {
   criadoEm DateTime @default(now())
 
   praticantes PraticanteModalidade[]
-  graduacoes  Graduacao[]
 }
 
+/// O que o praticante faz, e em que grau está.
+///
+/// A graduação vive aqui, e não numa tabela de histórico: o clube registra o
+/// grau atual, e o anterior é substituído. Para exame de graduação o que importa
+/// é o grau vigente e desde quando — que é exatamente o que fica guardado.
 model PraticanteModalidade {
   id    String    @id @default(cuid())
   desde DateTime
   ate   DateTime?
+
+  /// Nulo é mukyu — literalmente "sem grau", como todo praticante começa.
+  grau                 Grau?
+  graduadoEm           DateTime?
+  observacoesGraduacao String?
 
   praticante   Praticante @relation(fields: [praticanteId], references: [id], onDelete: Cascade)
   praticanteId String
@@ -271,24 +279,6 @@ model PraticanteModalidade {
   modalidadeId String
 
   @@unique([praticanteId, modalidadeId])
-}
-
-/// Graduação por modalidade: um 3º dan de kendo pode ser 1º dan de iaido.
-/// A graduação atual é a mais recente de cada modalidade, e não um campo — campo
-/// "grau atual" um dia discorda do histórico.
-model Graduacao {
-  id          String   @id @default(cuid())
-  grau        Grau
-  obtidaEm    DateTime
-  observacoes String?
-  criadoEm    DateTime @default(now())
-
-  praticante   Praticante @relation(fields: [praticanteId], references: [id], onDelete: Cascade)
-  praticanteId String
-  modalidade   Modalidade @relation(fields: [modalidadeId], references: [id], onDelete: Restrict)
-  modalidadeId String
-
-  @@index([praticanteId, modalidadeId, obtidaEm])
 }
 
 /// Gratuidade de mensalidade. Tem vigência, motivo e responsável porque mexe em

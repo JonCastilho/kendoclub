@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { grausDaModalidade, rotuloDoGrau } from '~~/shared/graduacao'
+import { grausDaModalidade, rotuloDaGraduacao, rotuloDoGrau } from '~~/shared/graduacao'
 import { descricaoDoAluguel } from '~~/shared/aluguel'
 import { formatarReais } from '~~/shared/dinheiro'
 
@@ -248,58 +248,116 @@ const classeBotao = 'rounded-md border border-default px-3 py-2 text-sm'
           <div>
             <span class="font-medium">{{ modalidade.modalidade }}</span>
             <span class="ml-2 text-sm text-muted">
-              {{ modalidade.graduacaoAtual ? rotuloDoGrau(modalidade.graduacaoAtual) : 'sem graduação' }}
-              · desde {{ data(modalidade.desde) }}
+              pratica desde {{ data(modalidade.desde) }}
             </span>
+          </div>
+          <div class="text-sm">
+            <span class="font-medium">{{ rotuloDaGraduacao(modalidade.grau) }}</span>
+            <span
+              v-if="modalidade.graduadoEm"
+              class="text-muted"
+            > desde {{ data(modalidade.graduadoEm) }}</span>
           </div>
         </div>
 
-        <ul class="mt-3 text-sm text-muted">
-          <li
-            v-for="graduacao in praticante.graduacoes.filter(g => g.modalidadeId === modalidade.modalidadeId)"
-            :key="graduacao.id"
-          >
-            {{ rotuloDoGrau(graduacao.grau) }} em {{ data(graduacao.obtidaEm) }}
-          </li>
-        </ul>
-
-        <form
-          method="post"
-          :action="`/api/praticantes/${id}/graduacoes`"
-          class="mt-3 flex gap-2 flex-wrap"
+        <p
+          v-if="modalidade.observacoesGraduacao"
+          class="mt-1 text-sm text-muted"
         >
-          <input
-            type="hidden"
-            name="modalidadeId"
-            :value="modalidade.modalidadeId"
-          >
-          <select
-            name="grau"
-            required
-            :class="classeCampo"
-          >
-            <option
-              v-for="grau in grausDaModalidade(modalidade.kyuInicial)"
-              :key="grau"
-              :value="grau"
-            >
-              {{ rotuloDoGrau(grau) }}
-            </option>
-          </select>
-          <input
-            type="date"
-            name="obtidaEm"
-            :value="hoje"
-            required
-            :class="classeCampo"
-          >
+          {{ modalidade.observacoesGraduacao }}
+        </p>
+
+        <!-- Os campos ficam no modal: registrar graduação é ocasional, e deixá-los
+             abertos enchia a ficha de formulário para algo que se faz uma vez
+             por ano. Salvar substitui o grau anterior — não há histórico. -->
+        <UModal :title="`Graduação de ${modalidade.modalidade}`">
           <button
-            type="submit"
-            :class="classeBotao"
+            type="button"
+            :class="`mt-3 ${classeBotao}`"
           >
-            Registrar graduação
+            {{ modalidade.grau ? 'Alterar graduação' : 'Registrar graduação' }}
           </button>
-        </form>
+
+          <template #body>
+            <form
+              method="post"
+              :action="`/api/praticantes/${id}/graduacao`"
+              class="flex flex-col gap-4"
+            >
+              <input
+                type="hidden"
+                name="modalidadeId"
+                :value="modalidade.modalidadeId"
+              >
+
+              <p class="text-sm text-muted">
+                O grau registrado substitui o anterior. O sistema guarda a
+                graduação atual, não o histórico de exames.
+              </p>
+
+              <div>
+                <label
+                  :for="`grau-${modalidade.modalidadeId}`"
+                  class="block text-sm font-medium mb-1"
+                >Graduação</label>
+                <select
+                  :id="`grau-${modalidade.modalidadeId}`"
+                  name="grau"
+                  class="w-full rounded-md border border-default bg-default px-3 py-2"
+                >
+                  <option
+                    value=""
+                    :selected="!modalidade.grau"
+                  >
+                    mukyu (sem grau)
+                  </option>
+                  <option
+                    v-for="grau in grausDaModalidade(modalidade.kyuInicial)"
+                    :key="grau"
+                    :value="grau"
+                    :selected="modalidade.grau === grau"
+                  >
+                    {{ rotuloDoGrau(grau) }}
+                  </option>
+                </select>
+              </div>
+
+              <div>
+                <label
+                  :for="`graduadoEm-${modalidade.modalidadeId}`"
+                  class="block text-sm font-medium mb-1"
+                >Data do exame</label>
+                <input
+                  :id="`graduadoEm-${modalidade.modalidadeId}`"
+                  type="date"
+                  name="graduadoEm"
+                  :value="modalidade.graduadoEm ? String(modalidade.graduadoEm).slice(0, 10) : hoje"
+                  class="w-full rounded-md border border-default bg-default px-3 py-2"
+                >
+              </div>
+
+              <div>
+                <label
+                  :for="`obs-${modalidade.modalidadeId}`"
+                  class="block text-sm font-medium mb-1"
+                >Observações</label>
+                <input
+                  :id="`obs-${modalidade.modalidadeId}`"
+                  name="observacoes"
+                  placeholder="Local do exame, banca…"
+                  class="w-full rounded-md border border-default bg-default px-3 py-2"
+                >
+              </div>
+
+              <button
+                type="submit"
+                class="rounded-md bg-primary text-inverted font-medium px-4 py-2"
+              >
+                Salvar graduação
+              </button>
+            </form>
+          </template>
+        </UModal>
       </div>
 
       <form

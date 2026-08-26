@@ -7,6 +7,7 @@ function adulto(sobrescreve: Partial<DadosDoCadastro> = {}): DadosDoCadastro {
   return {
     nomeCompleto: 'Fulano de Tal',
     dataNascimento: new Date('1990-05-10'),
+    sexo: 'MASCULINO',
     documento: '529.982.247-25',
     tipoDocumento: 'CPF',
     titularDocumento: 'PROPRIO',
@@ -51,6 +52,21 @@ describe('cadastro de adulto', () => {
   it('não valida dígitos de documento estrangeiro', () => {
     const estrangeiro = adulto({ documento: 'FX-8842910', tipoDocumento: 'DOCUMENTO_ESTRANGEIRO' })
     expect(problemasDoCadastro(estrangeiro, HOJE)).toEqual([])
+  })
+
+  it('exige o sexo, em vez de assumir um', () => {
+    // Sem escolha não se inventa uma: assumir por omissão é decidir pela pessoa.
+    expect(problemasDoCadastro(adulto({ sexo: null }), HOJE).join(' ')).toContain('sexo')
+    expect(problemasDoCadastro(adulto({ sexo: '' }), HOJE).join(' ')).toContain('sexo')
+  })
+
+  it('recusa valor de sexo fora da lista', () => {
+    expect(problemasDoCadastro(adulto({ sexo: 'OUTRO' }), HOJE).join(' ')).toContain('sexo')
+  })
+
+  it('aceita os dois valores previstos', () => {
+    expect(problemasDoCadastro(adulto({ sexo: 'FEMININO' }), HOJE)).toEqual([])
+    expect(problemasDoCadastro(adulto({ sexo: 'MASCULINO' }), HOJE)).toEqual([])
   })
 
   it('recusa documento de responsável para maior de idade', () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  graduacaoAtual,
+  rotuloDaGraduacao,
   grauPertenceAModalidade,
   grausDaModalidade,
   ordemDoGrau,
@@ -65,36 +65,14 @@ describe('grauPertenceAModalidade', () => {
   })
 })
 
-describe('graduacaoAtual', () => {
-  it('devolve nada quando não há graduação', () => {
-    expect(graduacaoAtual([])).toBeNull()
+describe('rotuloDaGraduacao', () => {
+  it('escreve o grau quando existe', () => {
+    expect(rotuloDaGraduacao('DAN_2')).toBe('2º dan')
   })
 
-  it('escolhe a mais recente', () => {
-    const historico = [
-      { grau: 'KYU_6' as const, obtidaEm: new Date('2020-03-01') },
-      { grau: 'KYU_3' as const, obtidaEm: new Date('2023-06-01') },
-      { grau: 'KYU_5' as const, obtidaEm: new Date('2021-08-01') },
-    ]
-    expect(graduacaoAtual(historico)?.grau).toBe('KYU_3')
-  })
-
-  it('desempata pelo grau mais alto quando as datas são iguais', () => {
-    // Acontece quando alguém cadastra o histórico inteiro de uma vez.
-    const mesmaData = new Date('2024-01-15')
-    const historico = [
-      { grau: 'KYU_2' as const, obtidaEm: mesmaData },
-      { grau: 'DAN_1' as const, obtidaEm: mesmaData },
-      { grau: 'KYU_1' as const, obtidaEm: mesmaData },
-    ]
-    expect(graduacaoAtual(historico)?.grau).toBe('DAN_1')
-  })
-
-  it('não se deixa enganar por ordem de entrada', () => {
-    const historico = [
-      { grau: 'DAN_2' as const, obtidaEm: new Date('2025-05-01') },
-      { grau: 'DAN_1' as const, obtidaEm: new Date('2022-05-01') },
-    ]
-    expect(graduacaoAtual(historico)?.grau).toBe('DAN_2')
+  it('chama de mukyu quem ainda não tem grau', () => {
+    // Mukyu é "sem grau" — por isso é ausência de valor, e não item do enum.
+    expect(rotuloDaGraduacao(null)).toBe('mukyu')
+    expect(rotuloDaGraduacao(undefined)).toBe('mukyu')
   })
 })

@@ -10,6 +10,7 @@ import { ehMenorDeIdade } from './idade'
 export interface DadosDoCadastro {
   nomeCompleto: string
   dataNascimento: Date
+  sexo: string | null
   documento: string
   tipoDocumento: 'CPF' | 'DOCUMENTO_ESTRANGEIRO'
   titularDocumento: 'PROPRIO' | 'RESPONSAVEL'
@@ -36,6 +37,12 @@ export function problemasDoCadastro(dados: DadosDoCadastro, hoje: Date = new Dat
   }
   else if (dados.dataNascimento > hoje) {
     problemas.push('A data de nascimento não pode estar no futuro.')
+  }
+
+  // Sem escolha não se inventa uma: assumir um sexo por omissão é decidir pela
+  // pessoa, e o campo é obrigatório para inscrição em campeonato.
+  if (dados.sexo !== 'FEMININO' && dados.sexo !== 'MASCULINO') {
+    problemas.push('Informe o sexo.')
   }
 
   problemas.push(...problemasDoDocumento(dados.documento, dados.tipoDocumento))

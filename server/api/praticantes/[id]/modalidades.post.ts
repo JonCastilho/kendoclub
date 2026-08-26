@@ -9,8 +9,9 @@ export default defineEventHandler(async (event) => {
   if (texto(corpo.acao) === 'desvincular') {
     const vinculoId = texto(corpo.vinculoId)
 
-    // O vínculo é apagado, mas as graduações ficam: o histórico de exames é do
-    // praticante, e não some porque ele parou de treinar a modalidade.
+    // A graduação vive dentro do vínculo, então desvincular a modalidade apaga
+    // junto o grau registrado nela. É consequência de guardar só o grau atual:
+    // não há histórico de onde reconstruí-lo.
     await prisma.praticanteModalidade.deleteMany({
       where: { id: vinculoId, praticanteId: id },
     })

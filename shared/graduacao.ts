@@ -45,24 +45,12 @@ export function grauPertenceAModalidade(grau: Grau, kyuInicial: number): boolean
   return grausDaModalidade(kyuInicial).includes(grau)
 }
 
-interface GraduacaoComparavel {
-  grau: Grau
-  obtidaEm: Date
-}
-
 /**
- * Graduação atual: a mais recente por data.
+ * Rótulo da graduação, incluindo o caso de quem ainda não tem grau.
  *
- * Empate na data desempata pelo grau mais alto — acontece quando alguém
- * cadastra o histórico inteiro de uma vez, com todas as datas iguais.
+ * Mukyu (無級) é literalmente "sem grau" — por isso é representado pela ausência
+ * de valor, e não por um item do enum que significaria "nenhum".
  */
-export function graduacaoAtual<T extends GraduacaoComparavel>(graduacoes: T[]): T | null {
-  if (graduacoes.length === 0) return null
-
-  return graduacoes.reduce((atual, candidata) => {
-    const diferencaDeData = candidata.obtidaEm.getTime() - atual.obtidaEm.getTime()
-    if (diferencaDeData > 0) return candidata
-    if (diferencaDeData < 0) return atual
-    return ordemDoGrau(candidata.grau) > ordemDoGrau(atual.grau) ? candidata : atual
-  })
+export function rotuloDaGraduacao(grau: Grau | null | undefined): string {
+  return grau ? rotuloDoGrau(grau) : 'mukyu'
 }

@@ -52,9 +52,12 @@ export function lerFormularioDoPraticante(
   const responsavelConsentimentoEm = consentimentoEm(
     corpo.responsavelConsentimento, anteriores?.responsavelConsentimentoEm)
 
+  const sexo = texto(corpo.sexo)
+
   const paraValidar: DadosDoCadastro = {
     nomeCompleto: texto(corpo.nomeCompleto),
     dataNascimento: dataNascimento ?? new Date(Number.NaN),
+    sexo: sexo || null,
     documento,
     tipoDocumento,
     titularDocumento,
@@ -74,7 +77,8 @@ export function lerFormularioDoPraticante(
     dados: {
       nomeCompleto: paraValidar.nomeCompleto,
       dataNascimento: dataNascimento ?? new Date(0),
-      sexo: texto(corpo.sexo) === 'FEMININO' ? 'FEMININO' : 'MASCULINO',
+      // Só chega aqui com valor válido: a validação acima barra o resto.
+      sexo: sexo === 'FEMININO' ? 'FEMININO' : 'MASCULINO',
       nacionalidade: texto(corpo.nacionalidade) || 'Brasileira',
       documento,
       tipoDocumento,

@@ -75,9 +75,9 @@ Praticante            id, nomeCompleto, dataNascimento,
                       autorizacaoImagemEm?, responsavelConsentimentoEm?
 Filiacao              id, praticanteId, inicioEm, fimEm?, motivoSaida?
 Modalidade            id, nome (único), kyuInicial, ativa
-PraticanteModalidade  id, praticanteId, modalidadeId, desde, ate?
-Graduacao             id, praticanteId, modalidadeId,
-                      grau (KYU_10..KYU_1, DAN_1..DAN_8), obtidaEm, observacoes?
+PraticanteModalidade  id, praticanteId, modalidadeId, desde, ate?,
+                      grau? (KYU_10..KYU_1, DAN_1..DAN_8), graduadoEm?,
+                      observacoesGraduacao?
 Isencao               id, praticanteId, inicioEm, fimEm?, motivo,
                       concedidaPorUsuarioId
 
@@ -124,8 +124,14 @@ Notas de modelagem:
   quadro.
 - `sexo` existe para inscrição em campeonato, onde as chaves são separadas.
 - **Graduação pertence à modalidade**, não ao praticante: um 3º dan de kendo pode
-  ser 1º dan de iaido. E **não existe campo "grau atual"** — é a graduação mais
-  recente de cada modalidade, senão um dia ele discorda do histórico.
+  ser 1º dan de iaido.
+- **Só o grau atual é guardado, dentro do próprio vínculo** — registrar uma
+  graduação substitui a anterior, e não há histórico de exames. Para exame de
+  graduação o que importa é o grau vigente e desde quando, que é o que fica.
+  Grau nulo é **mukyu** (無級, "sem grau"): ausência de valor, e não um item do
+  enum que significaria "nenhum".
+  *Decisão de agosto/2026, a pedido da diretoria; antes existia uma tabela
+  `Graduacao` com histórico.*
 - **Isenção tem período, motivo e responsável**, porque mexe em dinheiro. O mês de
   quem tem isenção vigente gera `Mensalidade` com situação `ISENTA`, e não
   ausência de cobrança: buraco no histórico ninguém sabe explicar depois.
