@@ -43,12 +43,14 @@ function formatarData(valor: string | Date | null) {
     >
       <input
         name="busca"
+        aria-label="Buscar praticante por nome ou e-mail"
         :value="rota.query.busca"
         placeholder="Buscar por nome ou e-mail"
         class="flex-1 min-w-60 rounded-md border border-default bg-default px-3 py-2"
       >
       <select
         name="situacao"
+        aria-label="Filtrar por situação de filiação"
         class="rounded-md border border-default bg-default px-3 py-2"
       >
         <option
@@ -93,19 +95,34 @@ function formatarData(valor: string | Date | null) {
       <table class="w-full text-sm">
         <thead class="text-left text-muted border-b border-default">
           <tr>
-            <th class="py-2 pr-4">
+            <th
+              scope="col"
+              class="py-2 pr-4"
+            >
               Nome
             </th>
-            <th class="py-2 pr-4">
+            <th
+              scope="col"
+              class="py-2 pr-4"
+            >
               Situação
             </th>
-            <th class="py-2 pr-4">
+            <th
+              scope="col"
+              class="py-2 pr-4"
+            >
               Modalidades
             </th>
-            <th class="py-2 pr-4">
+            <th
+              scope="col"
+              class="py-2 pr-4"
+            >
               Nascimento
             </th>
-            <th class="py-2">
+            <th
+              scope="col"
+              class="py-2"
+            >
               Contato
             </th>
           </tr>

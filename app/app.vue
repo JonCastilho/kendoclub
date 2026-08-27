@@ -7,6 +7,18 @@ const { loggedIn, user } = useUserSession()
 <template>
   <UApp>
     <div class="min-h-screen flex flex-col">
+      <!--
+        Atalho para quem navega por teclado: sem ele, chegar ao conteúdo exige
+        passar por toda a navegação a cada página. Fica escondido até receber
+        foco, então não atrapalha quem usa o mouse.
+      -->
+      <a
+        href="#conteudo"
+        class="sr-only focus:not-sr-only focus:absolute focus:m-2 focus:rounded-md focus:bg-default focus:px-4 focus:py-2"
+      >
+        Pular para o conteúdo
+      </a>
+
       <header class="border-b border-default">
         <nav class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
           <ULink
@@ -50,7 +62,10 @@ const { loggedIn, user } = useUserSession()
         </nav>
       </header>
 
-      <main class="flex-1">
+      <main
+        id="conteudo"
+        class="flex-1"
+      >
         <NuxtPage />
       </main>
 

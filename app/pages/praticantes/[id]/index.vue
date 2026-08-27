@@ -193,12 +193,14 @@ const classeBotao = 'rounded-md border border-default px-3 py-2 text-sm'
             <input
               type="date"
               name="fimEm"
+              aria-label="Data de saída do clube"
               :value="hoje"
               required
               :class="classeCampo"
             >
             <input
               name="motivoSaida"
+              aria-label="Motivo da saída"
               placeholder="Motivo da saída"
               :class="classeCampo"
             >
@@ -221,6 +223,7 @@ const classeBotao = 'rounded-md border border-default px-3 py-2 text-sm'
         <input
           type="date"
           name="inicioEm"
+          aria-label="Data da nova filiação"
           :value="hoje"
           required
           :class="classeCampo"
@@ -368,6 +371,7 @@ const classeBotao = 'rounded-md border border-default px-3 py-2 text-sm'
       >
         <select
           name="modalidadeId"
+          aria-label="Modalidade a adicionar"
           required
           :class="classeCampo"
         >
@@ -382,6 +386,7 @@ const classeBotao = 'rounded-md border border-default px-3 py-2 text-sm'
         <input
           type="date"
           name="desde"
+          aria-label="Pratica desde"
           :value="hoje"
           :class="classeCampo"
         >
@@ -436,6 +441,7 @@ const classeBotao = 'rounded-md border border-default px-3 py-2 text-sm'
             <input
               type="date"
               name="fimEm"
+              aria-label="Data da devolução"
               :value="hoje"
               required
               :class="classeCampo"
@@ -564,18 +570,21 @@ const classeBotao = 'rounded-md border border-default px-3 py-2 text-sm'
         <input
           type="date"
           name="inicioEm"
+          aria-label="Início da isenção"
           :value="hoje"
           required
           :class="classeCampo"
         >
         <input
           name="motivo"
+          aria-label="Motivo da isenção"
           placeholder="Motivo da isenção"
           required
           class="flex-1 min-w-60 rounded-md border border-default bg-default px-3 py-2"
         >
         <select
           name="abrangencia"
+          aria-label="O que a isenção cobre"
           :class="classeCampo"
           title="O que a gratuidade cobre"
         >

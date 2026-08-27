@@ -16,9 +16,15 @@ const lista = computed(() => (props.problemas?.length ? props.problemas : daQuer
 </script>
 
 <template>
+  <!--
+    role="alert" faz o leitor de tela anunciar os problemas assim que eles
+    aparecem. Sem isso, quem não enxerga a tela clica em salvar, nada
+    aparentemente acontece, e a lista de erros passa despercebida no topo.
+  -->
   <UAlert
     v-if="lista.length"
     class="mb-4"
+    role="alert"
     color="error"
     variant="subtle"
     :title="lista.length === 1 ? 'Corrija antes de salvar' : `${lista.length} pontos a corrigir`"

@@ -109,6 +109,7 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
             <CampoTexto
               nome="nomeCompleto"
               rotulo="Nome completo"
+              autocomplete="name"
               obrigatorio
               :valor="campo('nomeCompleto')"
             />
@@ -130,6 +131,7 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
               v-model="nascimento"
               name="dataNascimento"
               type="date"
+              autocomplete="bday"
               required
               :class="classeCampo"
             >
@@ -252,6 +254,7 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
           <CampoTexto
             nome="email"
             rotulo="E-mail"
+            autocomplete="email"
             tipo="email"
             obrigatorio
             :valor="campo('email')"
@@ -260,6 +263,7 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
           <CampoTexto
             nome="telefone"
             rotulo="Telefone"
+            autocomplete="tel"
             obrigatorio
             :valor="campo('telefone')"
           />
@@ -280,6 +284,7 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
             <CampoTexto
               nome="cep"
               rotulo="CEP"
+              autocomplete="postal-code"
               :valor="campo('cep')"
             />
           </div>
@@ -287,6 +292,7 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
             <CampoTexto
               nome="logradouro"
               rotulo="Logradouro"
+              autocomplete="address-line1"
               :valor="campo('logradouro')"
             />
           </div>
@@ -312,6 +318,7 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
           <CampoTexto
             nome="cidade"
             rotulo="Cidade"
+            autocomplete="address-level2"
             :valor="campo('cidade')"
           />
           <div>

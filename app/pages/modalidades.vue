@@ -40,6 +40,7 @@ const classeCampo = 'rounded-md border border-default bg-default px-3 py-2'
           <input
             name="nome"
             :value="modalidade.nome"
+            aria-label="Nome da modalidade"
             required
             :class="classeCampo"
           >

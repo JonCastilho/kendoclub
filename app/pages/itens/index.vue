@@ -38,6 +38,7 @@ const classeCampo = 'rounded-md border border-default bg-default px-3 py-2'
     >
       <select
         name="situacao"
+        aria-label="Filtrar itens por situação"
         :class="classeCampo"
       >
         <option
@@ -81,16 +82,28 @@ const classeCampo = 'rounded-md border border-default bg-default px-3 py-2'
       <table class="w-full text-sm">
         <thead class="text-left text-muted border-b border-default">
           <tr>
-            <th class="py-2 pr-4">
+            <th
+              scope="col"
+              class="py-2 pr-4"
+            >
               Item
             </th>
-            <th class="py-2 pr-4">
+            <th
+              scope="col"
+              class="py-2 pr-4"
+            >
               Situação
             </th>
-            <th class="py-2 pr-4">
+            <th
+              scope="col"
+              class="py-2 pr-4"
+            >
               Com quem
             </th>
-            <th class="py-2">
+            <th
+              scope="col"
+              class="py-2"
+            >
               Aluguel
             </th>
           </tr>

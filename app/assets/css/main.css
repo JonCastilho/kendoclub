@@ -1,2 +1,20 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
+
+/*
+ * Foco visível em qualquer controle, presente ou futuro.
+ *
+ * Escrito como regra global, e não classe por classe: quem navega por teclado
+ * precisa enxergar onde está em toda tela, e uma tela nova não pode nascer sem
+ * isso por esquecimento de quem a escreveu.
+ *
+ * A cor vem de --ui-text, o texto do tema — contrasta com qualquer fundo do app
+ * por definição, e acompanha o modo claro e o escuro. O deslocamento põe o
+ * contorno fora do elemento, o que o mantém visível até sobre um botão de cor
+ * cheia. `:where` não soma especificidade, então qualquer regra local vence.
+ */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--ui-text);
+  outline-offset: 2px;
+  border-radius: var(--ui-radius, 0.25rem);
+}

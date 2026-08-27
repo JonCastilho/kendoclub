@@ -125,6 +125,7 @@ const classeBotao = 'rounded-md border border-default px-3 py-2 text-sm'
         </div>
         <select
           name="situacao"
+          aria-label="Filtrar cobranças por situação"
           :class="classeCampo"
         >
           <option
@@ -244,6 +245,7 @@ const classeBotao = 'rounded-md border border-default px-3 py-2 text-sm'
               <input
                 type="date"
                 name="pagaEm"
+                aria-label="Data do pagamento"
                 :value="hoje"
                 required
                 :class="classeCampo"
