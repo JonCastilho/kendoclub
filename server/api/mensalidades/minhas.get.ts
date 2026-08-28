@@ -11,7 +11,10 @@ export default defineEventHandler(async (event) => {
   const [mensalidades, clube] = await Promise.all([
     prisma.mensalidade.findMany({
       where: { praticanteId: usuario.praticanteId },
-      include: { linhas: { orderBy: { tipo: 'asc' } } },
+      include: {
+        linhas: { orderBy: { tipo: 'asc' } },
+        declaracoes: { orderBy: { criadoEm: 'desc' } },
+      },
       orderBy: { competencia: 'desc' },
       take: 24,
     }),

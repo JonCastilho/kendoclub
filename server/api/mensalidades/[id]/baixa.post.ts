@@ -59,18 +59,26 @@ export default defineEventHandler(async (event) => {
     return responderErro(event, ['Valor pago inválido.'], voltar)
   }
 
-  await prisma.mensalidade.update({
-    where: { id },
-    data: {
-      situacao: 'PAGA',
-      pagaEm,
-      valorPago,
-      formaPagamento: opcional(corpo.formaPagamento) ?? 'Pix',
-      observacao: opcional(corpo.observacao) ?? mensalidade.observacao,
-      // Quem deu a baixa fica registrado, sempre.
-      baixadaPorUsuarioId: usuario.id,
-    },
-  })
+  await prisma.$transaction([
+    prisma.mensalidade.update({
+      where: { id },
+      data: {
+        situacao: 'PAGA',
+        pagaEm,
+        valorPago,
+        formaPagamento: opcional(corpo.formaPagamento) ?? 'Pix',
+        observacao: opcional(corpo.observacao) ?? mensalidade.observacao,
+        // Quem deu a baixa fica registrado, sempre.
+        baixadaPorUsuarioId: usuario.id,
+      },
+    }),
+    // A baixa responde ao aviso do praticante: dar baixa é aceitar a declaração
+    // pendente, e ela sai da fila de conferência sem exigir um segundo clique.
+    prisma.declaracaoPagamento.updateMany({
+      where: { mensalidadeId: id, analisadaEm: null },
+      data: { analisadaEm: new Date(), aceita: true, analisadaPorUsuarioId: usuario.id },
+    }),
+  ])
 
   return responderSucesso(event, voltar)
 })

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { competenciaAtual, formatarCompetencia } from '~~/shared/competencia'
 import { formatarReais } from '~~/shared/dinheiro'
+import { declaracaoPendente } from '~~/shared/declaracao'
 
 definePageMeta({ middleware: 'diretoria' })
 useHead({ title: 'Mensalidades - KendoClub' })
@@ -67,6 +68,15 @@ const classeBotao = 'rounded-md border border-default px-3 py-2 text-sm'
       :description="`${geracao.criadas} cobrança(s) criada(s), sendo ${geracao.isentas} isenta(s). `
         + `${geracao.jaExistiam} já existiam e ${geracao.semCobranca} praticante(s) ficaram de fora `
         + `por não estarem filiados no primeiro dia do mês.`"
+    />
+
+    <UAlert
+      v-if="data?.aConferir"
+      class="mt-4"
+      color="warning"
+      variant="subtle"
+      :title="`${data.aConferir} aviso(s) de pagamento a conferir`"
+      description="Praticantes avisaram que pagaram. Confira o extrato e dê baixa, ou recuse dizendo por quê."
     />
 
     <div class="mt-6 grid gap-4 sm:grid-cols-4">
@@ -226,6 +236,51 @@ const classeBotao = 'rounded-md border border-default px-3 py-2 text-sm'
               ({{ formatarReais(mensalidade.valorPago) }}),
               baixa por {{ mensalidade.baixadaPor?.email ?? '—' }}
             </p>
+
+            <!-- O aviso do praticante aparece junto da cobrança, e não numa
+                 caixa de entrada à parte: é aqui que a diretoria decide. -->
+            <div
+              v-if="declaracaoPendente(mensalidade.declaracoes)"
+              class="mt-2 rounded-md border border-warning/50 bg-warning/10 p-2 text-sm"
+            >
+              <p>
+                <strong>Avisou que pagou</strong> em
+                {{ data_(declaracaoPendente(mensalidade.declaracoes)!.pagoEm) }}
+                <span
+                  v-if="declaracaoPendente(mensalidade.declaracoes)!.observacao"
+                  class="text-muted"
+                >— {{ declaracaoPendente(mensalidade.declaracoes)!.observacao }}</span>
+              </p>
+              <p class="text-xs text-muted mt-1">
+                Dar baixa aceita o aviso. Se o pagamento não constar, recuse
+                dizendo por quê.
+              </p>
+
+              <form
+                method="post"
+                :action="`/api/mensalidades/${mensalidade.id}/declaracao`"
+                class="mt-2 flex gap-2 flex-wrap"
+              >
+                <input
+                  type="hidden"
+                  name="acao"
+                  value="recusar"
+                >
+                <input
+                  name="motivoRecusa"
+                  aria-label="Motivo da recusa"
+                  placeholder="Não encontrei no extrato"
+                  required
+                  class="flex-1 min-w-52 rounded-md border border-default bg-default px-2 py-1 text-sm"
+                >
+                <button
+                  type="submit"
+                  class="rounded-md border border-default px-3 py-1 text-sm"
+                >
+                  Recusar
+                </button>
+              </form>
+            </div>
           </div>
 
           <div class="text-right">

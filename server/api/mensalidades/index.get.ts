@@ -18,6 +18,7 @@ export default defineEventHandler(async (event) => {
     include: {
       praticante: { select: { id: true, nomeCompleto: true } },
       linhas: { orderBy: { tipo: 'asc' } },
+      declaracoes: { orderBy: { criadoEm: 'desc' } },
       baixadaPor: { select: { email: true } },
     },
     orderBy: { praticante: { nomeCompleto: 'asc' } },
@@ -37,8 +38,15 @@ export default defineEventHandler(async (event) => {
 
   const abertas = doMes.filter(m => m.situacao === 'ABERTA')
 
+  // Quantos avisos de pagamento esperam conferência — é a fila que a etapa 5
+  // tira do WhatsApp.
+  const aConferir = await prisma.declaracaoPagamento.count({
+    where: { analisadaEm: null, mensalidade: { competencia } },
+  })
+
   return {
     competencia,
+    aConferir,
     total: doMes.length,
     abertas: abertas.length,
     pagas: doMes.filter(m => m.situacao === 'PAGA').length,

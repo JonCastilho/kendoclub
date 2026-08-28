@@ -14,6 +14,7 @@ const { data: modalidades } = await useFetch('/api/modalidades')
 useHead({ title: () => `${praticante.value?.nomeCompleto ?? 'Praticante'} - KendoClub` })
 
 const hoje = new Date().toISOString().slice(0, 10)
+const acessoLink = computed(() => String(rota.query.acessoLink ?? ''))
 
 function data(valor: string | Date | null | undefined) {
   if (!valor) return '—'
@@ -153,6 +154,59 @@ const classeBotao = 'rounded-md border border-default px-3 py-2 text-sm'
         </ul>
       </template>
     </UAlert>
+
+    <!--
+      O link de definição de senha volta na URL quando o clube não tem SMTP —
+      sem isso, dojo sem servidor de e-mail não conseguiria dar acesso a
+      ninguém. É de uso único e vale uma hora.
+    -->
+    <UAlert
+      v-if="acessoLink"
+      class="mt-4"
+      color="success"
+      variant="subtle"
+      title="Acesso criado"
+    >
+      <template #description>
+        O e-mail não pôde ser enviado, então entregue este link ao praticante.
+        Ele vale por uma hora e só funciona uma vez:
+        <code class="block mt-1 break-all text-xs">{{ acessoLink }}</code>
+      </template>
+    </UAlert>
+
+    <section class="mt-10">
+      <h2 class="font-semibold mb-3">
+        Acesso ao sistema
+      </h2>
+
+      <p
+        v-if="praticante.usuario"
+        class="text-sm text-muted"
+      >
+        Acesso criado para <strong>{{ praticante.usuario.email }}</strong>.
+        {{ praticante.usuario.ultimoAcessoEm
+          ? `Último acesso em ${data(praticante.usuario.ultimoAcessoEm)}.`
+          : 'Ainda não entrou nenhuma vez.' }}
+      </p>
+
+      <form
+        v-else
+        method="post"
+        :action="`/api/praticantes/${id}/acesso`"
+      >
+        <p class="text-sm text-muted mb-2">
+          Cria a conta com o e-mail <strong>{{ praticante.email }}</strong> e envia
+          um link para o praticante definir a própria senha. A diretoria não
+          chega a conhecer a senha dele.
+        </p>
+        <button
+          type="submit"
+          :class="classeBotao"
+        >
+          Criar acesso
+        </button>
+      </form>
+    </section>
 
     <section class="mt-10">
       <h2 class="font-semibold mb-3">

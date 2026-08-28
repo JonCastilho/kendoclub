@@ -345,7 +345,24 @@ Sobre anexar o comprovante, quando chegar a hora — levantamento de agosto/2026
 - Entrega sempre por rota autenticada que confere de quem é a cobrança; nunca
   pasta pública. Tipo validado pelos bytes, não pela extensão.
 
-**Concluídas:** etapas 0, 1, 2, 3 e 4 (agosto de 2026).
+**Concluídas:** etapas 0, 1, 2, 3, 4 e 5 (agosto de 2026).
+
+Decisões da etapa 5:
+
+- **A diretoria cria o acesso do praticante**, e a senha nasce aleatória: quem a
+  define é o próprio praticante, pelo link. Assim a diretoria não passa a
+  conhecer a senha de quem cadastra. Sem SMTP configurado, o link volta na tela
+  para ser entregue à mão — sem isso, dojo sem servidor de e-mail não daria
+  acesso a ninguém.
+- **Dar baixa aceita a declaração pendente**, na mesma transação. Exigir um
+  segundo clique para "aceitar o aviso" seria burocracia sem informação nova.
+- **Recusar exige motivo escrito.** Um "não" sem explicação devolve o praticante
+  ao ponto de partida sem saber o que fazer.
+- **Uma declaração pendente por cobrança**, garantido por índice parcial: clicar
+  duas vezes em "já paguei" não pode encher a fila da diretoria com avisos
+  repetidos da mesma cobrança.
+- **Declarar é do dono da cobrança; recusar é da diretoria.** Nem a diretoria
+  declara pelo praticante — ela dá baixa, que é o ato dela.
 
 Decisões da etapa 4:
 

@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { formatarCompetencia } from '~~/shared/competencia'
 import { formatarReais } from '~~/shared/dinheiro'
+import { declaracaoPendente, ultimaRecusa } from '~~/shared/declaracao'
 
 definePageMeta({ middleware: 'autenticado' })
 useHead({ title: 'Minhas mensalidades - KendoClub' })
 
 const { data } = await useFetch('/api/mensalidades/minhas')
+
+const hoje = new Date().toISOString().slice(0, 10)
 
 const CORES = {
   ABERTA: 'warning',
@@ -116,6 +119,85 @@ async function copiarPix() {
           >
             Pago em {{ data_(mensalidade.pagaEm) }}
           </p>
+
+          <!-- Estado do aviso: sem isso o praticante avisa e fica sem saber se
+               alguém viu — que é o problema que esta etapa resolve. -->
+          <p
+            v-if="declaracaoPendente(mensalidade.declaracoes)"
+            class="mt-1 text-xs text-warning"
+          >
+            Você avisou que pagou em
+            {{ data_(declaracaoPendente(mensalidade.declaracoes)!.pagoEm) }}.
+            Aguardando conferência da diretoria.
+          </p>
+
+          <p
+            v-else-if="mensalidade.situacao === 'ABERTA' && ultimaRecusa(mensalidade.declaracoes)"
+            class="mt-1 text-xs text-error"
+          >
+            A diretoria não confirmou o pagamento:
+            {{ ultimaRecusa(mensalidade.declaracoes)!.motivoRecusa }}
+          </p>
+
+          <UModal
+            v-if="mensalidade.situacao === 'ABERTA' && !declaracaoPendente(mensalidade.declaracoes)"
+            title="Avisar que paguei"
+          >
+            <button
+              type="button"
+              class="mt-2 rounded-md border border-default px-3 py-1 text-sm"
+            >
+              Já paguei
+            </button>
+
+            <template #body>
+              <form
+                method="post"
+                :action="`/api/mensalidades/${mensalidade.id}/declaracao`"
+                class="flex flex-col gap-4"
+              >
+                <p class="text-sm text-muted">
+                  A diretoria vai conferir e dar baixa. O aviso não quita a
+                  cobrança sozinho.
+                </p>
+
+                <div>
+                  <label
+                    :for="`pagoEm-${mensalidade.id}`"
+                    class="block text-sm font-medium mb-1"
+                  >Quando você pagou</label>
+                  <input
+                    :id="`pagoEm-${mensalidade.id}`"
+                    type="date"
+                    name="pagoEm"
+                    :value="hoje"
+                    required
+                    class="w-full rounded-md border border-default bg-default px-3 py-2"
+                  >
+                </div>
+
+                <div>
+                  <label
+                    :for="`obs-${mensalidade.id}`"
+                    class="block text-sm font-medium mb-1"
+                  >Observação</label>
+                  <input
+                    :id="`obs-${mensalidade.id}`"
+                    name="observacao"
+                    placeholder="Paguei junto com a de julho, por exemplo"
+                    class="w-full rounded-md border border-default bg-default px-3 py-2"
+                  >
+                </div>
+
+                <button
+                  type="submit"
+                  class="rounded-md bg-primary text-inverted font-medium px-4 py-2"
+                >
+                  Enviar aviso
+                </button>
+              </form>
+            </template>
+          </UModal>
         </div>
 
         <div class="text-right whitespace-nowrap">

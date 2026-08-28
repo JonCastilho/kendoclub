@@ -139,6 +139,7 @@ model Usuario {
   eventosCriados      Evento[]               @relation("CriadorEvento")
   mensalidadesBaixadas Mensalidade[]         @relation("BaixadaPor")
   isencoesConcedidas  Isencao[]              @relation("IsencaoConcedidaPor")
+  declaracoesAnalisadas DeclaracaoPagamento[] @relation("DeclaracaoAnalisadaPor")
   tokensRedefinicao   TokenRedefinicaoSenha[]
 
   @@index([papel])
@@ -381,7 +382,8 @@ model Mensalidade {
   praticante   Praticante @relation(fields: [praticanteId], references: [id], onDelete: Restrict)
   praticanteId String
 
-  linhas LinhaMensalidade[]
+  linhas      LinhaMensalidade[]
+  declaracoes DeclaracaoPagamento[]
 
   /// Quem deu a baixa. Dinheiro pede trilha — PLANO.md §11.
   baixadaPor          Usuario? @relation("BaixadaPor", fields: [baixadaPorUsuarioId], references: [id], onDelete: SetNull)
@@ -391,6 +393,36 @@ model Mensalidade {
   @@unique([praticanteId, competencia])
   @@index([situacao, vencimento])
   @@index([competencia])
+}
+
+/// O praticante avisa que pagou; a diretoria confere e dá baixa.
+///
+/// A baixa continua sendo ato da diretoria: se declarar desse baixa, bastaria
+/// dizer que pagou. Isto aqui organiza a fila do que conferir — hoje esse aviso
+/// acontece no WhatsApp.
+///
+/// "Em análise" não é situação nova da mensalidade: é cobrança aberta com
+/// declaração ainda não analisada. A migration cria um índice parcial que
+/// garante uma única declaração pendente por mensalidade.
+model DeclaracaoPagamento {
+  id         String   @id @default(cuid())
+  /// Quando o praticante diz ter pago.
+  pagoEm     DateTime
+  observacao String?
+  criadoEm   DateTime @default(now())
+
+  mensalidade   Mensalidade @relation(fields: [mensalidadeId], references: [id], onDelete: Cascade)
+  mensalidadeId String
+
+  /// Enquanto `analisadaEm` for nulo, a declaração está na fila da diretoria.
+  analisadaEm  DateTime?
+  aceita       Boolean?
+  motivoRecusa String?
+
+  analisadaPor          Usuario? @relation("DeclaracaoAnalisadaPor", fields: [analisadaPorUsuarioId], references: [id], onDelete: SetNull)
+  analisadaPorUsuarioId String?
+
+  @@index([mensalidadeId])
 }
 
 /// Cada parcela do que se cobra no mês: a mensalidade do clube e um aluguel por

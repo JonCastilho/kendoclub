@@ -9,6 +9,7 @@ export default defineEventHandler(async (event) => {
   const praticante = await prisma.praticante.findUnique({
     where: { id },
     include: {
+      usuario: { select: { email: true, ativo: true, ultimoAcessoEm: true } },
       filiacoes: { orderBy: { inicioEm: 'desc' } },
       modalidades: { include: { modalidade: true }, orderBy: { desde: 'asc' } },
       isencoes: { orderBy: { inicioEm: 'desc' } },
