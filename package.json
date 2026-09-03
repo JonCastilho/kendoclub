@@ -29,6 +29,7 @@
     "@nuxt/ui": "^3.3.7",
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
+    "markdown-it": "^15.0.1",
     "nodemailer": "^9.0.5",
     "nuxt": "^3.21.11",
     "nuxt-auth-utils": "^0.5.30",
@@ -38,6 +39,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/markdown-it": "^14.2.0",
     "@types/nodemailer": "^7.0.12",
     "dotenv": "^17.4.2",
     "eslint": "^10.9.0",

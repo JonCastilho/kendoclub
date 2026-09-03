@@ -345,7 +345,28 @@ Sobre anexar o comprovante, quando chegar a hora — levantamento de agosto/2026
 - Entrega sempre por rota autenticada que confere de quem é a cobrança; nunca
   pasta pública. Tipo validado pelos bytes, não pela extensão.
 
-**Concluídas:** etapas 0, 1, 2, 3, 4 e 5 (agosto de 2026).
+**Concluídas:** etapas 0, 1, 2, 3, 4 e 5 (agosto de 2026). A etapa 6 está com o
+núcleo pronto — publicações, visibilidade e home pública —, faltando a imagem de
+capa, que traz upload de arquivo.
+
+Decisões da etapa 6:
+
+- **A visibilidade é aplicada na consulta ao banco**, não na camada de cima:
+  rascunho e publicação restrita não saem do Postgres para quem não tem direito.
+  Filtro esquecido depois da consulta vira vazamento.
+- **Endereço inexistente e endereço proibido respondem igual: 404.** Um 403
+  confirmaria que existe um post interno naquele endereço.
+- **A página responde 404 de verdade**, e não 200 com corpo vazio — senão um
+  buscador indexaria o "não encontrado" como página válida. Descoberto testando
+  a tela, depois de a API já estar correta.
+- **Markdown com HTML desligado.** Marcação escrita dentro do post é escapada,
+  não interpretada: não há caminho para script vindo do conteúdo, mesmo com uma
+  conta de diretoria comprometida.
+- **Publicar é ato separado de escrever.** A publicação nasce rascunho, e
+  corrigir uma vírgula não tira a notícia do ar. Republicar preserva a data
+  original, para o feed não se reordenar a cada ajuste de texto.
+- **O endereço não muda quando o título é corrigido**, para link já
+  compartilhado continuar valendo. Título repetido ganha sufixo numérico.
 
 Decisões da etapa 5:
 

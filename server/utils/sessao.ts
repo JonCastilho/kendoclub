@@ -37,6 +37,24 @@ export async function exigirDiretoria(event: H3Event): Promise<UsuarioSessao> {
   return usuario
 }
 
+/**
+ * Quem está lendo, sem exigir sessão.
+ *
+ * O newsfeed é a primeira parte do sistema que atende visitante anônimo, então
+ * aqui não se barra ninguém: descreve-se quem é, e a decisão do que mostrar
+ * fica com `podeVer`, em shared/publicacao.ts.
+ */
+export async function leitorAtual(event: H3Event) {
+  const sessao = await getUserSession(event)
+  const usuario = sessao?.user as UsuarioSessao | undefined
+
+  return {
+    logado: Boolean(usuario),
+    ehDiretoria: usuario?.papel === Papel.DIRETORIA,
+    usuario: usuario ?? null,
+  }
+}
+
 /** Para onde cada papel vai depois de entrar. */
 export function paginaInicialDoPapel(papel: Papel): string {
   return papel === Papel.DIRETORIA ? '/painel' : '/minha-area'
