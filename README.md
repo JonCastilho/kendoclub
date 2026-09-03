@@ -50,8 +50,13 @@ sorteada uma única vez** — guarde-a nesse momento. Não existe senha padrão 
 existisse, toda instalação deste sistema nasceria com a mesma credencial, e ela
 estaria publicada aqui.
 
-Outros comandos: `npm run lint`, `npm run typecheck`, `npm run test`,
-`npm run build`, `npm run db:studio` (navegador de dados do Prisma).
+Outros comandos: `npm run lint`, `npm run typecheck`, `npm run build`,
+`npm run db:studio` (navegador de dados do Prisma).
+
+Testes: `npm run test:unidade` cobre as regras de negócio e roda em segundos;
+`npm run test:api` sobe a aplicação contra um banco de teste próprio e exercita
+os endpoints; `npm test` roda os dois. O banco de teste e seu arquivo de
+ambiente são criados sozinhos na primeira execução.
 
 ### Envio de e-mail
 

@@ -21,7 +21,9 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "typecheck": "nuxt typecheck"
+    "typecheck": "nuxt typecheck",
+    "test:unidade": "vitest run --project unidade",
+    "test:api": "vitest run --project api"
   },
   "dependencies": {
     "@nuxt/ui": "^3.3.7",

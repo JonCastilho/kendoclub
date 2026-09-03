@@ -44,6 +44,22 @@ sem essa linha não podem ser aceitos.
   import explícito.
 - Regras de negócio sensíveis — geração de cobrança, baixa de pagamento,
   permissões e visibilidade de conteúdo — devem vir com teste.
+- **Dois conjuntos de teste, com propósitos diferentes:**
+  - `npm run test:unidade` roda em segundos e cobre as regras puras. É o que se
+    usa enquanto se escreve código.
+  - `npm run test:api` sobe a aplicação de verdade contra um **banco próprio**
+    (o mesmo nome do seu, com sufixo `_teste`) e exercita os endpoints. Leva
+    cerca de um minuto e meio, quase tudo esperando o servidor subir.
+  - `npm test` roda os dois.
+
+  O `.env.test` é criado sozinho na primeira execução, a partir do seu `.env`,
+  trocando apenas o nome do banco. O preparo **se recusa a rodar** se o banco
+  não terminar em `_teste`, e ainda confirma pelo próprio servidor que ele está
+  falando com o banco certo antes de escrever qualquer coisa — passar
+  `DATABASE_URL` pelo ambiente não vence o `.env`, e sem essa checagem um teste
+  destrutivo apagaria dados reais.
+- Endpoint novo pede teste em `test/api/`, nem que seja só o de permissão. Os
+  quatro bugs mais sérios do projeto até hoje estavam nessa fronteira.
 - Verificação de permissão sempre no servidor. Esconder um botão na interface não
   é controle de acesso.
 - Nada de dado real de praticante em teste, fixture ou seed.
