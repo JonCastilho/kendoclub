@@ -64,6 +64,22 @@ A redefinição de senha usa SMTP, configurado em `.env`. **Sem SMTP configurado
 sistema continua funcionando**: a mensagem não sai e o link é registrado no log
 do servidor, o que basta em desenvolvimento.
 
+### Imagens enviadas
+
+As capas das notícias ficam em disco, na pasta apontada por `NUXT_UPLOAD_DIR`
+(por padrão `./uploads`), e **não** no banco. Duas consequências para quem
+hospeda:
+
+- **O backup precisa incluir essa pasta**, não só o dump do PostgreSQL. Um
+  backup só do banco restaura as notícias sem as imagens.
+- **Hospedagem com disco efêmero** (contêiner que é recriado a cada implantação)
+  perde as imagens. Nesses serviços, aponte `NUXT_UPLOAD_DIR` para um volume
+  persistente.
+
+A pasta não é servida como conteúdo estático: cada imagem passa pelo mesmo
+controle de acesso da publicação a que pertence, para que a capa de uma notícia
+interna não fique aberta na internet.
+
 Todas as variáveis de ambiente estão documentadas em
 [.env.example](.env.example).
 

@@ -1,3 +1,5 @@
+import { urlDaCapa } from '~~/shared/imagem'
+
 /**
  * O feed. Único endpoint de leitura que atende visitante anônimo — por isso a
  * filtragem por visibilidade é a linha mais importante deste arquivo.
@@ -35,6 +37,7 @@ export default defineEventHandler(async (event) => {
     publicacoes: publicacoes.map(p => ({
       ...p,
       conteudo: undefined,
+      imagemCapa: urlDaCapa(p.slug, p.imagemCapa),
       resumo: resumoDoTexto(p.conteudo),
     })),
   }

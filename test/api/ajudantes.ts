@@ -61,6 +61,70 @@ export async function enviar(
   }
 }
 
+/**
+ * Envia um formulário com arquivo, que é multipart e não urlencoded.
+ *
+ * Só o envio de capa usa este caminho; o `enviar` acima cobre o resto do
+ * sistema. A distinção não é detalhe: foi mandar multipart onde o servidor
+ * esperava urlencoded que fez todo campo chegar vazio no cadastro de praticante.
+ */
+export async function enviarArquivo(
+  caminho: string,
+  campos: Record<string, string> = {},
+  arquivo?: { nome: string, tipo: string, bytes: Uint8Array<ArrayBuffer> },
+  opcoes: { cookie?: string, nativo?: boolean } = {},
+): Promise<Resposta> {
+  const corpo = new FormData()
+  for (const [nome, valor] of Object.entries(campos)) corpo.append(nome, valor)
+  if (arquivo) {
+    corpo.append('imagem', new Blob([arquivo.bytes], { type: arquivo.tipo }), arquivo.nome)
+  }
+
+  const cabecalhos: Record<string, string> = {}
+  if (!opcoes.nativo) cabecalhos.accept = 'application/json'
+  if (opcoes.cookie) cabecalhos.cookie = opcoes.cookie
+
+  // Sem content-type à mão: o fetch monta a fronteira do multipart.
+  const resposta = await fetch(`${ENDERECO}${caminho}`, {
+    method: 'POST',
+    redirect: 'manual',
+    headers: cabecalhos,
+    body: corpo,
+  })
+
+  const texto = await resposta.text()
+  let json: Record<string, unknown>
+  try {
+    json = texto ? JSON.parse(texto) : {}
+  }
+  catch {
+    json = {}
+  }
+
+  return {
+    status: resposta.status,
+    destino: resposta.headers.get('location') ?? String(json.destino ?? ''),
+    ok: json.ok === true || (resposta.status >= 300 && resposta.status < 400),
+    problemas: (json.problemas as string[]) ?? [],
+    corpo: json,
+  }
+}
+
+/** Leitura de resposta binária, com os cabeçalhos que importam para imagem. */
+export async function lerBruto(caminho: string, cookie?: string) {
+  const resposta = await fetch(`${ENDERECO}${caminho}`, {
+    headers: cookie ? { cookie } : {},
+  })
+
+  return {
+    status: resposta.status,
+    tipo: resposta.headers.get('content-type') ?? '',
+    nosniff: resposta.headers.get('x-content-type-options') ?? '',
+    cache: resposta.headers.get('cache-control') ?? '',
+    bytes: new Uint8Array(await resposta.arrayBuffer()),
+  }
+}
+
 export async function ler<T = Record<string, unknown>>(
   caminho: string,
   cookie?: string,

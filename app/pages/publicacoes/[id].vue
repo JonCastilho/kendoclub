@@ -142,5 +142,83 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
         </ULink>
       </div>
     </form>
+
+    <!-- Formulário próprio, e multipart: é o único do sistema que carrega
+         arquivo. Separado do texto para que salvar o título não reenvie a foto,
+         e para que trocar a foto não dependa de o texto estar válido. -->
+    <section class="mt-10 border-t border-default pt-8">
+      <h2 class="text-lg font-semibold">
+        Imagem de capa
+      </h2>
+      <p class="mt-1 text-sm text-muted">
+        JPEG, PNG ou WebP, até 3 MB. Em notícia interna, a imagem também fica
+        restrita a quem tem acesso ao sistema.
+      </p>
+
+      <img
+        v-if="publicacao.imagemCapa"
+        :src="publicacao.imagemCapa"
+        alt="Capa atual da publicação"
+        class="mt-4 max-w-sm w-full rounded-md border border-default"
+      >
+
+      <form
+        method="post"
+        action="/api/publicacoes/capa"
+        enctype="multipart/form-data"
+        class="mt-4 flex flex-wrap items-end gap-3"
+      >
+        <input
+          type="hidden"
+          name="id"
+          :value="publicacao.id"
+        >
+        <div>
+          <label
+            for="imagem"
+            class="block text-sm font-medium mb-1"
+          >Escolher arquivo</label>
+          <input
+            id="imagem"
+            type="file"
+            name="imagem"
+            accept="image/jpeg,image/png,image/webp"
+            required
+            :class="classeCampo"
+          >
+        </div>
+        <button
+          type="submit"
+          class="rounded-md border border-default px-4 py-2"
+        >
+          {{ publicacao.imagemCapa ? 'Trocar capa' : 'Enviar capa' }}
+        </button>
+      </form>
+
+      <form
+        v-if="publicacao.imagemCapa"
+        method="post"
+        action="/api/publicacoes/capa"
+        enctype="multipart/form-data"
+        class="mt-3"
+      >
+        <input
+          type="hidden"
+          name="id"
+          :value="publicacao.id"
+        >
+        <input
+          type="hidden"
+          name="acao"
+          value="remover"
+        >
+        <button
+          type="submit"
+          class="text-sm underline"
+        >
+          Remover capa
+        </button>
+      </form>
+    </section>
   </div>
 </template>

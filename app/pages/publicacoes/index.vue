@@ -123,7 +123,8 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
             Criar rascunho
           </button>
           <p class="mt-1 text-xs text-muted">
-            A publicação nasce como rascunho. Publicar é um segundo passo.
+            A publicação nasce como rascunho. Publicar é um segundo passo, e a
+            imagem de capa se escolhe depois, na tela de edição.
           </p>
         </div>
       </form>

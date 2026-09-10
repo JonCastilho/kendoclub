@@ -1,3 +1,4 @@
+import { urlDaCapa } from '~~/shared/imagem'
 import { podeVer } from '~~/shared/publicacao'
 
 export default defineEventHandler(async (event) => {
@@ -21,6 +22,9 @@ export default defineEventHandler(async (event) => {
 
   return {
     ...publicacao,
+    // A página recebe o endereço pronto e não precisa saber que existe um nome
+    // de arquivo em disco por trás.
+    imagemCapa: urlDaCapa(publicacao.slug, publicacao.imagemCapa),
     html: markdownParaHtml(publicacao.conteudo),
     podeEditar: leitor.ehDiretoria,
   }

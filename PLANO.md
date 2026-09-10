@@ -94,7 +94,8 @@ Mensalidade           id, praticanteId, competencia (AAAA-MM), vencimento,
 LinhaMensalidade      id, mensalidadeId, tipo (MENSALIDADE|ALUGUEL|OUTRO),
                       descricao, valor, aluguelId?
 
-Publicacao            id, titulo, slug, conteudo (markdown), imagemCapa?,
+Publicacao            id, titulo, slug, conteudo (markdown),
+                      imagemCapa? (nome do arquivo em disco, não endereço),
                       visibilidade (PUBLICA|RESTRITA), publicadaEm?, autorUsuarioId
 Evento                id, titulo, slug, descricao (markdown), inicioEm, fimEm?,
                       local?, visibilidade (PUBLICA|RESTRITA),
@@ -345,12 +346,36 @@ Sobre anexar o comprovante, quando chegar a hora — levantamento de agosto/2026
 - Entrega sempre por rota autenticada que confere de quem é a cobrança; nunca
   pasta pública. Tipo validado pelos bytes, não pela extensão.
 
-**Concluídas:** etapas 0, 1, 2, 3, 4 e 5 (agosto de 2026). A etapa 6 está com o
-núcleo pronto — publicações, visibilidade e home pública —, faltando a imagem de
-capa, que traz upload de arquivo.
+**Concluídas:** etapas 0, 1, 2, 3, 4, 5 e 6 (setembro de 2026).
 
 Decisões da etapa 6:
 
+- **A imagem de capa herda a permissão do post.** É o detalhe que quase passa
+  batido: proteger o texto e deixar a foto numa pasta pública faz a notícia
+  interna vazar pela imagem. Por isso a capa não é servida como arquivo
+  estático — sai por uma rota que carrega a publicação e roda o mesmo `podeVer`
+  do texto. Cache de notícia interna vai como `private`, para não ficar num
+  cache compartilhado no caminho.
+- **O tipo do arquivo é decidido pelos bytes**, nunca pela extensão nem pelo
+  `content-type` do envio: os dois são escritos por quem envia. A lista aceita é
+  curta de propósito — JPEG, PNG e WebP. SVG fica de fora por ser texto que
+  aceita `<script>` dentro.
+- **O nome do arquivo em disco é sorteado**, e o nome enviado é descartado. Ele
+  entra no endereço público, o que resolve de graça o cache do navegador:
+  trocar a capa troca o endereço.
+- **O nome pedido no endereço é só comparado; quem abre o arquivo é o valor
+  guardado no banco.** Assim nenhum pedaço de caminho escrito por quem acessa
+  chega ao sistema de arquivos, e a capa de um post não pode ser baixada pelo
+  endereço de outro.
+- **As imagens ficam em disco, não no banco.** Bytes no Postgres engordariam
+  todo dump do clube com conteúdo que não é dado de gestão. O custo da escolha é
+  que a pasta precisa entrar no backup e não sobrevive a disco efêmero — está
+  dito no README, junto de `NUXT_UPLOAD_DIR`.
+- **A capa tem formulário próprio, e o formulário de texto não escreve nesse
+  campo.** É o único envio multipart do sistema; separar evita reenviar a foto
+  ao corrigir o título. Enquanto o campo estava nos dois lugares, salvar o texto
+  apagava a capa, porque aquele formulário não manda esse campo — há teste
+  fixando o comportamento.
 - **A visibilidade é aplicada na consulta ao banco**, não na camada de cima:
   rascunho e publicação restrita não saem do Postgres para quem não tem direito.
   Filtro esquecido depois da consulta vira vazamento.

@@ -21,12 +21,11 @@ export default defineEventHandler(async (event) => {
   const problemas = problemasDaPublicacao({ titulo, conteudo })
   if (problemas.length > 0) return responderErro(event, problemas, voltar)
 
-  const dados = {
-    titulo,
-    conteudo,
-    visibilidade,
-    imagemCapa: opcional(corpo.imagemCapa),
-  }
+  // A capa não entra aqui. Quem escreve nela é capa.post.ts, e o valor é um
+  // nome de arquivo em disco — não algo que um formulário de texto digite.
+  // Enquanto estava nesta lista, salvar o título apagava a capa, porque este
+  // formulário não manda o campo.
+  const dados = { titulo, conteudo, visibilidade }
 
   if (id) {
     // O endereço não muda quando o título é corrigido: link já compartilhado
