@@ -1,6 +1,9 @@
-import type { Prisma } from '@prisma/client'
+import type { Grau, Prisma } from '@prisma/client'
 import { interpretarValor } from '~~/shared/dinheiro'
+import { type Competidor, categoriasCompativeis, idadeNoAno } from '~~/shared/competicao'
 import {
+  type InscricaoDetalhada,
+  type SituacaoNaCompeticao,
   type SubeventoDetalhado,
   diaDe,
   diasDoEvento,
@@ -130,15 +133,29 @@ export async function slugDeEventoDisponivel(base: string): Promise<string> {
   }
 }
 
-/** Colunas de subevento que as telas usam, com a contagem de inscritos. */
+/** Colunas de subevento que as telas usam, com contagens de inscritos. */
 export const camposDoSubevento = {
   id: true,
   tipo: true,
   local: true,
   dias: true,
   valor: true,
-  modalidade: { select: { id: true, nome: true } },
+  modalidade: { select: { id: true, nome: true, kyuInicial: true } },
   _count: { select: { inscricoes: true } },
+  categorias: {
+    orderBy: { criadoEm: 'asc' },
+    select: {
+      id: true,
+      nome: true,
+      sexo: true,
+      idadeMinima: true,
+      idadeMaxima: true,
+      grauMinimo: true,
+      grauMaximo: true,
+      isenta: true,
+      _count: { select: { inscricoes: true } },
+    },
+  },
 } satisfies Prisma.SubeventoSelect
 
 type SubeventoDoBanco = Prisma.SubeventoGetPayload<{ select: typeof camposDoSubevento }>
@@ -152,6 +169,17 @@ export function subeventoDetalhado(subevento: SubeventoDoBanco): SubeventoDetalh
     dias: diasComoTexto(subevento.dias),
     valor: numeroOuNulo(subevento.valor),
     inscritos: subevento._count.inscricoes,
+    categorias: subevento.categorias.map(c => ({
+      id: c.id,
+      nome: c.nome,
+      sexo: c.sexo,
+      idadeMinima: c.idadeMinima,
+      idadeMaxima: c.idadeMaxima,
+      grauMinimo: c.grauMinimo,
+      grauMaximo: c.grauMaximo,
+      isenta: c.isenta,
+      inscritos: c._count.inscricoes,
+    })),
   }
 }
 
@@ -160,27 +188,113 @@ export function numeroOuNulo(valor: Prisma.Decimal | null): number | null {
   return valor === null ? null : Number(valor)
 }
 
+/** O que do cadastro decide a categoria. */
+export const camposDoCompetidor = {
+  sexo: true,
+  dataNascimento: true,
+  modalidades: { select: { modalidadeId: true, grau: true } },
+} satisfies Prisma.PraticanteSelect
+
+export interface PraticanteCompetidor {
+  sexo: 'MASCULINO' | 'FEMININO'
+  dataNascimento: Date
+  modalidades: Array<{ modalidadeId: string, grau: Grau | null }>
+}
+
+/**
+ * Sexo, idade no ano e graduação do praticante numa competição.
+ * Quem não tem a modalidade no cadastro conta como mukyu nela.
+ */
+export function competidorNa(
+  praticante: PraticanteCompetidor,
+  subevento: Pick<SubeventoDetalhado, 'modalidade' | 'dias'>,
+): Competidor {
+  return {
+    sexo: praticante.sexo,
+    idade: idadeNoAno(diaDe(praticante.dataNascimento), subevento.dias[0] ?? diaDe(new Date())),
+    grau: praticante.modalidades.find(m => m.modalidadeId === subevento.modalidade.id)?.grau ?? null,
+  }
+}
+
+/** Situação do praticante em cada competição do evento, para a tela. */
+export function situacaoNasCompeticoes(
+  praticante: PraticanteCompetidor,
+  subeventos: SubeventoDetalhado[],
+): Record<string, SituacaoNaCompeticao> {
+  const situacao: Record<string, SituacaoNaCompeticao> = {}
+
+  for (const subevento of subeventos.filter(s => s.tipo === 'COMPETICAO')) {
+    const competidor = competidorNa(praticante, subevento)
+    situacao[subevento.id] = {
+      idade: competidor.idade,
+      grau: competidor.grau,
+      compativeis: categoriasCompativeis(subevento.categorias, competidor).map(c => c.id),
+    }
+  }
+
+  return situacao
+}
+
 type InscricaoDoBanco = {
   alojamento: boolean
-  subeventos: Array<{ subeventoId: string }>
+  subeventos: Array<{
+    subeventoId: string
+    categoriaId: string | null
+    individual: boolean | null
+    equipe: boolean | null
+  }>
   obentos: Array<{ dia: Date, quantidade: number }>
 }
 
-/** Inscrição gravada → o formato das regras, com o total estimado. */
+/** Campos da inscrição que `inscricaoComTotal` lê. */
+export const camposDaInscricao = {
+  alojamento: true,
+  subeventos: { select: { subeventoId: true, categoriaId: true, individual: true, equipe: true } },
+  obentos: { select: { dia: true, quantidade: true } },
+} satisfies Prisma.InscricaoEventoSelect
+
+/**
+ * Inscrição gravada → o formato das telas, com o total estimado.
+ *
+ * O valor é sempre o do subevento. Em competição, categoria isenta zera a
+ * participação de quem compete nela.
+ */
 export function inscricaoComTotal(
   inscricao: InscricaoDoBanco,
   evento: { valorAlojamento: Prisma.Decimal | null, valorObento: Prisma.Decimal | null },
-  subeventos: Array<{ id: string, valor: number | null }>,
-) {
+  subeventos: SubeventoDetalhado[],
+): InscricaoDetalhada {
   const subeventoIds = inscricao.subeventos.map(s => s.subeventoId)
   const obentos = Object.fromEntries(inscricao.obentos.map(o => [diaDe(o.dia), o.quantidade]))
+
+  const competicoes: InscricaoDetalhada['competicoes'] = {}
+  const valores: Array<number | null> = []
+
+  for (const escolhido of inscricao.subeventos) {
+    const subevento = subeventos.find(s => s.id === escolhido.subeventoId)
+    if (!subevento) continue
+
+    if (escolhido.categoriaId) {
+      competicoes[subevento.id] = {
+        categoriaId: escolhido.categoriaId,
+        individual: Boolean(escolhido.individual),
+        equipe: Boolean(escolhido.equipe),
+      }
+      const isenta = subevento.categorias.find(c => c.id === escolhido.categoriaId)?.isenta
+      valores.push(isenta ? 0 : subevento.valor)
+    }
+    else {
+      valores.push(subevento.valor)
+    }
+  }
 
   return {
     subeventoIds,
     alojamento: inscricao.alojamento,
     obentos,
+    competicoes,
     total: totalDaInscricao({
-      valoresDosSubeventos: subeventos.filter(s => subeventoIds.includes(s.id)).map(s => s.valor),
+      valoresDosSubeventos: valores,
       alojamento: inscricao.alojamento,
       valorAlojamento: numeroOuNulo(evento.valorAlojamento),
       quantidadeDeObentos: inscricao.obentos.reduce((soma, o) => soma + o.quantidade, 0),

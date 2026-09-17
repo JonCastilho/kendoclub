@@ -114,6 +114,13 @@ enum SituacaoItem {
 
 /// Os subeventos têm tipos fixos, e não perguntas livres: é o tipo que permite
 /// tirar do cadastro o que um formulário perguntaria. Ver PLANO.md, etapa 7.
+/// Misto aceita os dois sexos do cadastro.
+enum SexoCategoria {
+  MASCULINO
+  FEMININO
+  MISTO
+}
+
 enum TipoSubevento {
   SEMINARIO
   COMPETICAO
@@ -514,8 +521,8 @@ model Subevento {
   local String
   dias  DateTime[]
 
-  /// Valor do seminário. Competição e exame terão valor por categoria e por
-  /// graduação, em tabelas próprias.
+  /// Valor de participação, no seminário e na competição — nesta, cobre
+  /// individual e equipe. Exame terá valor por graduação, em tabela própria.
   valor Decimal? @db.Decimal(10, 2)
 
   criadoEm DateTime @default(now())
@@ -526,6 +533,7 @@ model Subevento {
   modalidadeId String
 
   inscricoes InscricaoSubevento[]
+  categorias CategoriaCompeticao[]
 
   /// O mesmo tipo pode se repetir em modalidades diferentes, nunca na mesma.
   @@unique([eventoId, tipo, modalidadeId])
@@ -533,6 +541,29 @@ model Subevento {
 
 /// A inscrição no evento guarda o que é do evento todo. Pode existir só com
 /// obento — sensei que vai dar apoio, pai ou mãe de kenshi —, mas nunca vazia.
+/// Tabela de categorias de uma competição. Cada campeonato traz a sua.
+/// Faixa em branco é faixa sem limite; grau nulo não é mukyu aqui, é "sem
+/// limite" — mukyu fica naturalmente abaixo de qualquer grau mínimo.
+model CategoriaCompeticao {
+  id          String        @id @default(cuid())
+  nome        String
+  sexo        SexoCategoria
+  idadeMinima Int?
+  idadeMaxima Int?
+  grauMinimo  Grau?
+  grauMaximo  Grau?
+  /// Quem compete nesta categoria não paga a participação.
+  isenta      Boolean       @default(false)
+  criadoEm    DateTime      @default(now())
+
+  subevento   Subevento @relation(fields: [subeventoId], references: [id], onDelete: Cascade)
+  subeventoId String
+
+  inscricoes InscricaoSubevento[]
+
+  @@unique([subeventoId, nome])
+}
+
 model InscricaoEvento {
   id           String   @id @default(cuid())
   /// Só para quem participa de algum subevento.
@@ -558,6 +589,12 @@ model InscricaoEvento {
 model InscricaoSubevento {
   id       String   @id @default(cuid())
   criadoEm DateTime @default(now())
+
+  /// Só em competição: categoria decidida pelo cadastro e modo de participação.
+  categoria   CategoriaCompeticao? @relation(fields: [categoriaId], references: [id], onDelete: Restrict)
+  categoriaId String?
+  individual  Boolean?
+  equipe      Boolean?
 
   inscricaoEvento   InscricaoEvento @relation(fields: [inscricaoEventoId], references: [id], onDelete: Cascade)
   inscricaoEventoId String

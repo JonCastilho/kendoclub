@@ -1,11 +1,13 @@
+import { categoriasCompativeis } from '~~/shared/competicao'
 import { type InscritosDoEvento, totaisDeObentoPorDia } from '~~/shared/evento'
 import { estaFiliado } from '~~/shared/filiacao'
 
 /**
  * Lista de inscritos, para a diretoria.
  *
- * Mostra se cada pessoa está filiada: estar filiado não é condição para se
- * inscrever, mas a diretoria precisa saber.
+ * Mostra se cada pessoa está filiada — estar filiado não é condição para se
+ * inscrever, mas a diretoria precisa saber — e se a categoria gravada ainda
+ * atende ao cadastro, já que tabela e cadastro podem mudar depois da inscrição.
  */
 export default defineEventHandler(async (event): Promise<InscritosDoEvento> => {
   await exigirDiretoria(event)
@@ -26,14 +28,13 @@ export default defineEventHandler(async (event): Promise<InscritosDoEvento> => {
       inscricoes: {
         orderBy: { praticante: { nomeCompleto: 'asc' } },
         select: {
-          alojamento: true,
-          subeventos: { select: { subeventoId: true } },
-          obentos: { select: { dia: true, quantidade: true } },
+          ...camposDaInscricao,
           praticante: {
             select: {
               id: true,
               nomeCompleto: true,
               filiacoes: { select: { inicioEm: true, fimEm: true } },
+              ...camposDoCompetidor,
             },
           },
         },
@@ -46,11 +47,21 @@ export default defineEventHandler(async (event): Promise<InscritosDoEvento> => {
 
   const inscritos = evento.inscricoes.map((inscricao) => {
     const detalhada = inscricaoComTotal(inscricao, evento, subeventos)
+
+    const foraDaCategoria = Object.entries(detalhada.competicoes)
+      .filter(([subeventoId, participacao]) => {
+        const subevento = subeventos.find(s => s.id === subeventoId)!
+        const servem = categoriasCompativeis(subevento.categorias, competidorNa(inscricao.praticante, subevento))
+        return !servem.some(c => c.id === participacao.categoriaId)
+      })
+      .map(([subeventoId]) => subeventoId)
+
     return {
       praticanteId: inscricao.praticante.id,
       nome: inscricao.praticante.nomeCompleto,
       filiado: estaFiliado(inscricao.praticante.filiacoes),
       ...detalhada,
+      foraDaCategoria,
     }
   })
 

@@ -1,10 +1,13 @@
 <script setup lang="ts">
+import { ROTULO_DO_SEXO, rotuloDaFaixaDeGrau, rotuloDaIdade } from '~~/shared/competicao'
 import { formatarReais } from '~~/shared/dinheiro'
 import {
   type EventoDetalhado,
   ROTULO_DO_TIPO,
+  type SubeventoDetalhado,
   formatarDia,
 } from '~~/shared/evento'
+import { rotuloDaGraduacao } from '~~/shared/graduacao'
 
 const rota = useRoute()
 const slug = rota.params.slug as string
@@ -35,6 +38,17 @@ const { data: praticantes } = await useFetch('/api/praticantes', {
 // Quem está usando a tela já aparece como "Eu mesmo".
 const outrosPraticantes = computed(() =>
   (praticantes.value?.praticantes ?? []).filter(p => p.id !== user.value?.praticanteId))
+
+function categoriasQueServem(subevento: SubeventoDetalhado) {
+  const compativeis = evento.value?.competidor[subevento.id]?.compativeis ?? []
+  return subevento.categorias.filter(c => compativeis.includes(c.id))
+}
+
+/** Preço de quem compete na categoria: o da competição, ou nada se isenta. */
+function precoNaCategoria(subevento: SubeventoDetalhado, isenta: boolean) {
+  if (isenta) return 'isenta'
+  return subevento.valor ? formatarReais(subevento.valor) : 'gratuita'
+}
 
 function periodo(inicio: string | null, fim: string | null) {
   if (!inicio || !fim) return 'sem data'
@@ -102,6 +116,20 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
           >
             {{ subevento.valor === 0 ? 'Gratuito' : formatarReais(subevento.valor) }}
           </div>
+          <ul
+            v-if="subevento.tipo === 'COMPETICAO'"
+            class="mt-1 text-sm"
+          >
+            <li
+              v-for="categoria in subevento.categorias"
+              :key="categoria.id"
+            >
+              {{ categoria.nome }} ({{ ROTULO_DO_SEXO[categoria.sexo].toLowerCase() }},
+              {{ rotuloDaIdade(categoria.idadeMinima, categoria.idadeMaxima) }},
+              {{ rotuloDaFaixaDeGrau(categoria.grauMinimo, categoria.grauMaximo) }})
+              — {{ precoNaCategoria(subevento, categoria.isenta) }}
+            </li>
+          </ul>
         </li>
       </ul>
 
@@ -255,25 +283,100 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
               <legend class="font-medium mb-2">
                 De que vai participar
               </legend>
-              <div class="flex flex-col gap-2">
-                <label
+              <div class="flex flex-col gap-3">
+                <div
                   v-for="subevento in evento.subeventos"
                   :key="subevento.id"
-                  class="flex items-start gap-2"
                 >
-                  <input
-                    type="checkbox"
-                    :name="`subevento_${subevento.id}`"
-                    :checked="evento.inscricao?.subeventoIds.includes(subevento.id)"
-                    class="mt-1"
-                  >
-                  <span>
-                    {{ ROTULO_DO_TIPO[subevento.tipo] }} de {{ subevento.modalidade.nome }}
-                    <span class="text-sm text-muted">
-                      — {{ subevento.valor ? formatarReais(subevento.valor) : 'gratuito' }}
+                  <label class="flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      :name="`subevento_${subevento.id}`"
+                      :checked="evento.inscricao?.subeventoIds.includes(subevento.id)"
+                      class="mt-1"
+                    >
+                    <span>
+                      {{ ROTULO_DO_TIPO[subevento.tipo] }} de {{ subevento.modalidade.nome }}
+                      <span class="text-sm text-muted">
+                        — {{ subevento.valor ? formatarReais(subevento.valor) : 'gratuito' }}
+                      </span>
                     </span>
-                  </span>
-                </label>
+                  </label>
+
+                  <!-- Competição: a categoria sai do cadastro. Só se pergunta
+                       algo quando mais de uma categoria serve. -->
+                  <div
+                    v-if="subevento.tipo === 'COMPETICAO' && evento.competidor[subevento.id]"
+                    class="ml-6 mt-2 flex flex-col gap-2 text-sm"
+                  >
+                    <p class="text-muted">
+                      Idade no ano do evento: {{ evento.competidor[subevento.id]!.idade }} ·
+                      graduação: {{ rotuloDaGraduacao(evento.competidor[subevento.id]!.grau) }}
+                    </p>
+
+                    <p
+                      v-if="!categoriasQueServem(subevento).length"
+                      class="text-warning"
+                    >
+                      Nenhuma categoria desta competição atende a este cadastro. A
+                      tabela de categorias provavelmente está incompleta — avise a
+                      diretoria.
+                    </p>
+
+                    <template v-else>
+                      <p v-if="categoriasQueServem(subevento).length === 1">
+                        Categoria: <strong>{{ categoriasQueServem(subevento)[0]!.nome }}</strong>
+                        — {{ precoNaCategoria(subevento, categoriasQueServem(subevento)[0]!.isenta) }}
+                      </p>
+
+                      <div v-else>
+                        <label
+                          :for="`categoria_${subevento.id}`"
+                          class="block"
+                        >Você se encaixa em mais de uma categoria. Escolha uma:</label>
+                        <select
+                          :id="`categoria_${subevento.id}`"
+                          :name="`categoria_${subevento.id}`"
+                          :class="classeCampo"
+                        >
+                          <option
+                            value=""
+                            :selected="!evento.inscricao?.competicoes[subevento.id]"
+                          >
+                            Escolha
+                          </option>
+                          <option
+                            v-for="categoria in categoriasQueServem(subevento)"
+                            :key="categoria.id"
+                            :value="categoria.id"
+                            :selected="evento.inscricao?.competicoes[subevento.id]?.categoriaId === categoria.id"
+                          >
+                            {{ categoria.nome }} — {{ precoNaCategoria(subevento, categoria.isenta) }}
+                          </option>
+                        </select>
+                      </div>
+
+                      <div class="flex gap-4">
+                        <label class="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            :name="`individual_${subevento.id}`"
+                            :checked="evento.inscricao?.competicoes[subevento.id]?.individual ?? true"
+                          >
+                          Individual
+                        </label>
+                        <label class="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            :name="`equipe_${subevento.id}`"
+                            :checked="evento.inscricao?.competicoes[subevento.id]?.equipe"
+                          >
+                          Equipe
+                        </label>
+                      </div>
+                    </template>
+                  </div>
+                </div>
               </div>
             </fieldset>
 

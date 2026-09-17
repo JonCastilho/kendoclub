@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { rotuloDaFaixaDeGrau, rotuloDaIdade } from '~~/shared/competicao'
 import { formatarReais } from '~~/shared/dinheiro'
 import {
   type EventoDetalhado,
@@ -264,7 +265,7 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
       </h2>
       <p class="mt-1 text-sm text-muted">
         Cada subevento é de uma modalidade. O mesmo tipo pode se repetir em
-        modalidades diferentes. Competição e exame chegam nas próximas partes.
+        modalidades diferentes. Exame chega na próxima parte.
       </p>
 
       <div
@@ -289,6 +290,71 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
           :valor-no-campo="valorNoCampo(subevento.valor)"
           :pede-confirmacao="temEncomendas"
         />
+
+        <div
+          v-if="subevento.tipo === 'COMPETICAO'"
+          class="mt-5 border-t border-default pt-4"
+        >
+          <h4 class="font-medium">
+            Categorias
+          </h4>
+          <p class="text-xs text-muted">
+            Idade no ano do evento e graduação nesta modalidade; faixa em branco
+            não limita. Quem compete em categoria isenta não paga a participação.
+            Sem categoria, a competição não pode ser publicada.
+          </p>
+
+          <div
+            v-for="categoria in subevento.categorias"
+            :key="categoria.id"
+            class="mt-3 rounded-md bg-elevated p-2"
+          >
+            <FormularioCategoria
+              :subevento-id="subevento.id"
+              :kyu-inicial="subevento.modalidade.kyuInicial"
+              :categoria="categoria"
+            />
+            <form
+              method="post"
+              action="/api/eventos/categorias/remover"
+              class="mt-1 flex flex-wrap items-center gap-3 text-xs"
+            >
+              <input
+                type="hidden"
+                name="id"
+                :value="categoria.id"
+              >
+              <span class="text-muted">
+                {{ rotuloDaIdade(categoria.idadeMinima, categoria.idadeMaxima) }} ·
+                {{ rotuloDaFaixaDeGrau(categoria.grauMinimo, categoria.grauMaximo) }} ·
+                {{ categoria.isenta ? 'isenta · ' : '' }}{{ categoria.inscritos }} inscrito(s)
+              </span>
+              <label
+                v-if="categoria.inscritos > 0"
+                class="flex items-center gap-1"
+              >
+                <input
+                  type="checkbox"
+                  name="confirmar"
+                >
+                confirmo tirar os inscritos da competição
+              </label>
+              <button
+                type="submit"
+                class="underline text-error"
+              >
+                Remover categoria
+              </button>
+            </form>
+          </div>
+
+          <div class="mt-3 rounded-md border border-dashed border-default p-2">
+            <FormularioCategoria
+              :subevento-id="subevento.id"
+              :kyu-inicial="subevento.modalidade.kyuInicial"
+            />
+          </div>
+        </div>
 
         <form
           method="post"

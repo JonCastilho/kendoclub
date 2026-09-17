@@ -45,18 +45,15 @@ export default defineEventHandler(async (event): Promise<EventoDetalhado> => {
 
   const praticante = praticanteId
     ? await prisma.praticante.findUnique({
-        where: { id: praticanteId }, select: { id: true, nomeCompleto: true },
+        where: { id: praticanteId },
+        select: { id: true, nomeCompleto: true, ...camposDoCompetidor },
       })
     : null
 
   const inscricao = praticante
     ? await prisma.inscricaoEvento.findUnique({
         where: { eventoId_praticanteId: { eventoId: evento.id, praticanteId: praticante.id } },
-        select: {
-          alojamento: true,
-          subeventos: { select: { subeventoId: true } },
-          obentos: { select: { dia: true, quantidade: true } },
-        },
+        select: camposDaInscricao,
       })
     : null
 
@@ -104,5 +101,6 @@ export default defineEventHandler(async (event): Promise<EventoDetalhado> => {
     // O prazo é a única regra que a diretoria dispensa.
     podeInscrever: Boolean(praticante) && (leitor.ehDiretoria || prazoAberto),
     inscricao: inscricao ? inscricaoComTotal(inscricao, evento, subeventos) : null,
+    competidor: praticante ? situacaoNasCompeticoes(praticante, subeventos) : {},
   }
 })

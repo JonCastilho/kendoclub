@@ -40,10 +40,22 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
     <div class="grid gap-3 sm:grid-cols-2">
       <div>
         <label
-          :for="`${prefixo}-tipo`"
+          :for="subevento ? undefined : `${prefixo}-tipo`"
           class="block text-sm font-medium mb-1"
         >Tipo</label>
+        <!-- O tipo não muda depois de criado; para trocar, remove-se o subevento. -->
+        <template v-if="subevento">
+          <input
+            type="hidden"
+            name="tipo"
+            :value="subevento.tipo"
+          >
+          <p class="py-2">
+            {{ ROTULO_DO_TIPO[subevento.tipo] }}
+          </p>
+        </template>
         <select
+          v-else
           :id="`${prefixo}-tipo`"
           name="tipo"
           :class="classeCampo"
@@ -52,7 +64,6 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
             v-for="tipo in tipos"
             :key="tipo"
             :value="tipo"
-            :selected="subevento?.tipo === tipo"
           >
             {{ ROTULO_DO_TIPO[tipo] }}
           </option>
@@ -120,11 +131,14 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
       </div>
     </fieldset>
 
-    <div class="max-w-xs">
+    <div
+      v-if="!subevento || subevento.tipo !== 'EXAME'"
+      class="max-w-xs"
+    >
       <label
         :for="`${prefixo}-valor`"
         class="block text-sm font-medium mb-1"
-      >Valor do seminário</label>
+      >Valor de participação</label>
       <input
         :id="`${prefixo}-valor`"
         name="valor"
@@ -134,7 +148,8 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
         :class="classeCampo"
       >
       <p class="mt-1 text-xs text-muted">
-        Use 0 se for gratuito.
+        Use 0 se for gratuito. Na competição, o valor cobre individual e equipe, e
+        cada categoria pode ser marcada como isenta.
       </p>
     </div>
 

@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { formatarReais } from '~~/shared/dinheiro'
-import { type InscritosDoEvento, ROTULO_DO_TIPO, formatarDia } from '~~/shared/evento'
+import {
+  type InscritosDoEvento,
+  type ParticipacaoNaCompeticao,
+  ROTULO_DO_TIPO,
+  type SubeventoDetalhado,
+  formatarDia,
+} from '~~/shared/evento'
 
 definePageMeta({ middleware: 'diretoria' })
 
@@ -8,6 +14,16 @@ const id = useRoute().params.id as string
 const { data } = await useFetch<InscritosDoEvento>(`/api/eventos/${id}/inscritos`)
 
 useHead({ title: () => `Inscritos em ${data.value?.evento.titulo ?? ''} - KendoClub` })
+
+function nomeDaCategoria(subevento: SubeventoDetalhado, categoriaId: string | undefined) {
+  return subevento.categorias.find(c => c.id === categoriaId)?.nome ?? 'sem categoria'
+}
+
+function modo(participacao: ParticipacaoNaCompeticao | undefined) {
+  if (!participacao) return ''
+  if (participacao.individual && participacao.equipe) return 'individual e equipe'
+  return participacao.individual ? 'individual' : 'equipe'
+}
 
 const naoFiliados = computed(() => (data.value?.inscritos ?? []).filter(i => !i.filiado).length)
 </script>
@@ -158,7 +174,24 @@ const naoFiliados = computed(() => (data.value?.inscritos ?? []).filter(i => !i.
               :key="subevento.id"
               class="py-2 pr-4"
             >
-              {{ inscrito.subeventoIds.includes(subevento.id) ? 'sim' : '—' }}
+              <template v-if="!inscrito.subeventoIds.includes(subevento.id)">
+                —
+              </template>
+              <template v-else-if="subevento.tipo === 'COMPETICAO'">
+                {{ nomeDaCategoria(subevento, inscrito.competicoes[subevento.id]?.categoriaId) }}
+                <span class="text-muted">({{ modo(inscrito.competicoes[subevento.id]) }})</span>
+                <UBadge
+                  v-if="inscrito.foraDaCategoria.includes(subevento.id)"
+                  color="warning"
+                  variant="subtle"
+                  class="ml-1"
+                >
+                  não cabe mais nesta categoria
+                </UBadge>
+              </template>
+              <template v-else>
+                sim
+              </template>
             </td>
             <td
               v-if="data.evento.ofereceAlojamento"

@@ -156,8 +156,12 @@ describe('problemasDoSubevento', () => {
     expect(problemasDoSubevento({ ...valido, dias: ['2026-02-30'] })).toHaveLength(1)
   })
 
-  it('ainda não aceita competição nem exame', () => {
-    expect(problemasDoSubevento({ ...valido, tipo: 'COMPETICAO' })).toHaveLength(1)
+  it('exige valor de participação também na competição', () => {
+    expect(problemasDoSubevento({ ...valido, tipo: 'COMPETICAO' })).toEqual([])
+    expect(problemasDoSubevento({ ...valido, tipo: 'COMPETICAO', valor: null })[0]).toContain('Use 0')
+  })
+
+  it('ainda não aceita exame', () => {
     expect(problemasDoSubevento({ ...valido, tipo: 'EXAME' })).toHaveLength(1)
   })
 })
@@ -166,6 +170,17 @@ describe('problemasParaPublicar', () => {
   it('exige subevento com data', () => {
     expect(problemasParaPublicar([])).toHaveLength(1)
     expect(problemasParaPublicar([{ dias: ['2026-03-14'] }])).toEqual([])
+  })
+
+  it('exige categoria em toda competição', () => {
+    const problemas = problemasParaPublicar([
+      { dias: ['2026-03-14'], tipo: 'COMPETICAO', categorias: 0, nome: 'competição de kendo' },
+    ])
+    expect(problemas).toEqual(['Cadastre ao menos uma categoria em competição de kendo antes de publicar.'])
+
+    expect(problemasParaPublicar([
+      { dias: ['2026-03-14'], tipo: 'COMPETICAO', categorias: 2 },
+    ])).toEqual([])
   })
 })
 

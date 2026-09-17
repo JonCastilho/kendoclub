@@ -1,3 +1,5 @@
+import type { Grau } from '@prisma/client'
+import type { Categoria } from './competicao'
 import { gerarSlug } from './publicacao'
 
 /**
@@ -10,11 +12,8 @@ import { gerarSlug } from './publicacao'
 
 export type TipoSubevento = 'SEMINARIO' | 'COMPETICAO' | 'EXAME'
 
-/**
- * Tipos que já podem ser criados. Competição e exame dependem das tabelas de
- * categoria e de graduação, que chegam nas partes 7.2 e 7.3.
- */
-export const TIPOS_DISPONIVEIS: TipoSubevento[] = ['SEMINARIO']
+/** Tipos que já podem ser criados. Exame depende da tabela de graduações (7.3). */
+export const TIPOS_DISPONIVEIS: TipoSubevento[] = ['SEMINARIO', 'COMPETICAO']
 
 export const ROTULO_DO_TIPO: Record<TipoSubevento, string> = {
   SEMINARIO: 'Seminário',
@@ -149,19 +148,37 @@ export function problemasDoSubevento(dados: DadosDoSubevento): string[] {
   if (dados.dias.length === 0) problemas.push('Informe ao menos um dia.')
   else if (dados.dias.some(dia => !ehDiaValido(dia))) problemas.push('Há um dia inválido.')
 
-  if (dados.tipo === 'SEMINARIO' && dados.valor === null) {
-    // Zero é valor válido: seminário gratuito.
-    problemas.push('Informe o valor do seminário. Use 0 se for gratuito.')
+  // Seminário e competição têm valor de participação; zero é gratuito. Na
+  // competição, a isenção é por categoria.
+  if (['SEMINARIO', 'COMPETICAO'].includes(dados.tipo) && dados.valor === null) {
+    problemas.push('Informe o valor de participação. Use 0 se for gratuito.')
   }
 
   return problemas
 }
 
-/** Evento sem subevento com data não tem o que mostrar na agenda. */
-export function problemasParaPublicar(subeventos: Array<{ dias: string[] }>): string[] {
-  return diasDoEvento(subeventos).length === 0
-    ? ['Adicione ao menos um subevento com data antes de publicar.']
-    : []
+/**
+ * O que impede a publicação.
+ *
+ * Evento sem subevento com data não tem o que mostrar na agenda, e competição
+ * sem categoria não aceitaria inscrição de ninguém.
+ */
+export function problemasParaPublicar(
+  subeventos: Array<{ dias: string[], tipo?: TipoSubevento, categorias?: number, nome?: string }>,
+): string[] {
+  const problemas: string[] = []
+
+  if (diasDoEvento(subeventos).length === 0) {
+    problemas.push('Adicione ao menos um subevento com data antes de publicar.')
+  }
+
+  for (const subevento of subeventos) {
+    if (subevento.tipo === 'COMPETICAO' && !subevento.categorias) {
+      problemas.push(`Cadastre ao menos uma categoria em ${subevento.nome ?? 'competição'} antes de publicar.`)
+    }
+  }
+
+  return problemas
 }
 
 /**
@@ -285,14 +302,37 @@ export function totaisDeObentoPorDia(
  * alcança rota dinâmica que convive com rotas estáticas no mesmo caminho.
  */
 
+export type CategoriaDetalhada = Categoria & { inscritos: number }
+
 export interface SubeventoDetalhado {
   id: string
   tipo: TipoSubevento
-  modalidade: { id: string, nome: string }
+  modalidade: { id: string, nome: string, kyuInicial: number }
   local: string
   dias: string[]
   valor: number | null
   inscritos: number
+  /** Só em competição. */
+  categorias: CategoriaDetalhada[]
+}
+
+export interface ParticipacaoNaCompeticao {
+  categoriaId: string
+  individual: boolean
+  equipe: boolean
+}
+
+export type InscricaoDetalhada = InscricaoNormalizada & {
+  /** Subevento de competição → como participa. */
+  competicoes: Record<string, ParticipacaoNaCompeticao>
+  total: number
+}
+
+/** O que o cadastro diz de quem está sendo inscrito, em cada competição. */
+export interface SituacaoNaCompeticao {
+  idade: number
+  grau: Grau | null
+  compativeis: string[]
 }
 
 export interface EventoDetalhado {
@@ -323,7 +363,9 @@ export interface EventoDetalhado {
   /** De quem é a inscrição mostrada: o leitor, ou quem a diretoria escolheu. */
   inscrevendo: { praticanteId: string, nome: string, proprio: boolean } | null
   podeInscrever: boolean
-  inscricao: (InscricaoNormalizada & { total: number }) | null
+  inscricao: InscricaoDetalhada | null
+  /** Subevento de competição → idade, grau e categorias que servem. */
+  competidor: Record<string, SituacaoNaCompeticao>
 }
 
 export interface InscritoNoEvento {
@@ -333,6 +375,12 @@ export interface InscritoNoEvento {
   subeventoIds: string[]
   alojamento: boolean
   obentos: Record<string, number>
+  competicoes: Record<string, ParticipacaoNaCompeticao>
+  /**
+   * Competições em que a categoria gravada já não atende ao cadastro — a
+   * tabela ou o cadastro mudou depois da inscrição.
+   */
+  foraDaCategoria: string[]
   total: number
 }
 

@@ -106,10 +106,10 @@ Evento                id, titulo, slug, descricao (markdown),
                       criadoPorUsuarioId
 Subevento             id, eventoId, tipo (SEMINARIO|COMPETICAO|EXAME),
                       modalidadeId, local, dias (lista de datas),
-                      valor? (só seminário)
+                      valor? (participação no seminário e na competição)
                       único por (eventoId, tipo, modalidadeId)
 CategoriaCompeticao   id, subeventoId, nome, sexo (MASCULINO|FEMININO|MISTO),
-                      idadeMinima?, idadeMaxima?, grauMinimo?, grauMaximo?, valor
+                      idadeMinima?, idadeMaxima?, grauMinimo?, grauMaximo?, isenta
 GraduacaoExame        id, subeventoId, grau, valor
                       único por (subeventoId, grau)
 InscricaoEvento       id, eventoId, praticanteId, alojamento,
@@ -450,8 +450,12 @@ Competição:
 
 - **Cada campeonato traz a própria tabela de categorias.** Uma categoria é
   definida por sexo (masculino, feminino ou misto), faixa de idade e faixa de
-  graduação, e tem o seu valor — que cobre individual e equipe juntos. Faixa em
-  branco é faixa sem limite.
+  graduação. Faixa em branco é faixa sem limite.
+- **O valor de participação é da competição**, e cobre individual e equipe
+  juntos. **Cada categoria pode ser marcada como isenta**: quem compete nela não
+  paga. Revisto com a diretoria na implementação — a primeira versão punha um
+  valor em cada categoria, mas na prática o preço é um só e a exceção é a
+  isenção (por exemplo, juvenil gratuito).
 - **A idade é a que a pessoa completa ou completou no ano do evento**: ano do
   evento menos ano de nascimento.
 - A inscrição marca individual, equipe ou os dois; ao menos um. **A diretoria
@@ -527,7 +531,31 @@ Decisões da parte 7.1, tomadas na implementação:
 - **Competição e exame já existem no banco, mas ainda não podem ser criados** —
   dependem das tabelas de categoria e de graduação das partes 7.2 e 7.3.
 
-**Concluídas:** etapas 0, 1, 2, 3, 4, 5 e 6 (setembro de 2026), e a parte 7.1.
+Decisões da parte 7.2, tomadas na implementação:
+
+- **Competição sem categoria não é publicada.** Ninguém conseguiria se inscrever,
+  e o erro só apareceria quando a primeira pessoa tentasse.
+- **O tipo de um subevento não muda depois de criado.** Seminário que virasse
+  competição ficaria com inscritos sem categoria; o inverso deixaria categorias
+  soltas. Para trocar, remove-se e cria-se outro.
+- **A inscrição guarda a categoria escolhida**, como a cobrança guarda o mês:
+  mudar a tabela ou o cadastro depois não mexe em quem já está inscrito. A lista
+  de inscritos recalcula e marca "não cabe mais nesta categoria", para a
+  diretoria decidir o que fazer.
+- **Remover categoria com inscritos pede confirmação e tira essas pessoas da
+  competição**, mantendo o resto da inscrição delas (outros subeventos, obento).
+- **O ano da idade é o do primeiro dia da competição.** Só importa em evento que
+  atravessa a virada do ano, e aí vale o ano em que a competição começa.
+- **A tela só pergunta a categoria quando há escolha**, e só oferece as que
+  servem. A programação pública mostra a tabela inteira, para quem ainda não
+  entrou saber em que categoria cairia. Individual vem marcado por padrão.
+- **A migração que trocou o valor da categoria pela isenção preserva o que já
+  existia**: categoria de valor zero virou isenta, e competição sem valor herdou
+  o maior valor das suas categorias, antes de a coluna antiga sair.
+- **Nome de categoria é único dentro da competição** — duas "Adulto" na mesma
+  tabela tornariam a lista de inscritos ambígua.
+
+**Concluídas:** etapas 0, 1, 2, 3, 4, 5 e 6 (setembro de 2026), e as partes 7.1 e 7.2.
 
 Decisões da etapa 6:
 

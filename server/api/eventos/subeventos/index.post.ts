@@ -53,6 +53,14 @@ export default defineEventHandler(async (event) => {
   })
   if (!modalidade) return responderErro(event, ['Modalidade não encontrada.'], voltar)
 
+  // O tipo não muda depois de criado: seminário que virasse competição ficaria
+  // com inscritos sem categoria, e o inverso deixaria categorias soltas.
+  const atual = evento.subeventos.find(s => s.id === id)
+  if (atual && atual.tipo !== dados.tipo) {
+    return responderErro(event, [
+      'O tipo de um subevento não muda depois de criado. Remova e crie outro.'], voltar)
+  }
+
   const outros = evento.subeventos.filter(s => s.id !== id)
 
   if (outros.some(s => s.tipo === dados.tipo && s.modalidadeId === dados.modalidadeId)) {
@@ -86,7 +94,7 @@ export default defineEventHandler(async (event) => {
     modalidadeId: dados.modalidadeId,
     local: dados.local,
     dias: dias.map(diaComoData),
-    valor: dados.tipo === 'SEMINARIO' ? dados.valor : null,
+    valor: dados.tipo === 'EXAME' ? null : dados.valor,
   }
 
   await prisma.$transaction(async (tx) => {

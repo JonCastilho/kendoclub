@@ -156,9 +156,9 @@ describe('montagem do evento', () => {
       .toContain('Use 0')
   })
 
-  it('ainda não aceita competição nem exame', async () => {
-    const id = await criarEvento('Evento Com Competição Antecipada')
-    const resposta = await seminario(id, { tipo: 'COMPETICAO' })
+  it('ainda não aceita exame', async () => {
+    const id = await criarEvento('Evento Com Exame Antecipado')
+    const resposta = await seminario(id, { tipo: 'EXAME' })
     expect(resposta.problemas).toHaveLength(1)
   })
 

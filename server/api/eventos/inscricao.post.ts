@@ -1,4 +1,7 @@
+import { categoriasCompativeis, decidirCompeticao } from '~~/shared/competicao'
 import {
+  ROTULO_DO_TIPO,
+  type ParticipacaoNaCompeticao,
   diaDe,
   ehDiaValido,
   formatarDia,
@@ -12,8 +15,10 @@ import { podeVer } from '~~/shared/publicacao'
  * Grava a inscrição inteira de um praticante num evento.
  *
  * O formulário manda o estado completo — subeventos marcados (`subevento_<id>`),
- * alojamento e quantidade de obento por dia (`obento_<dia>`) — e o servidor faz
- * a inscrição ficar igual a ele. Estado vazio é desistência.
+ * alojamento, quantidade de obento por dia (`obento_<dia>`) e, em cada
+ * competição, categoria e modo (`categoria_<id>`, `individual_<id>`,
+ * `equipe_<id>`) — e o servidor faz a inscrição ficar igual a ele. Estado vazio
+ * é desistência.
  */
 export default defineEventHandler(async (event) => {
   const usuario = await exigirUsuario(event)
@@ -31,7 +36,7 @@ export default defineEventHandler(async (event) => {
       prazoInscricao: true,
       ofereceAlojamento: true,
       diasObento: true,
-      subeventos: { select: { id: true } },
+      subeventos: { select: camposDoSubevento },
     },
   })
 
@@ -57,7 +62,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const praticante = await prisma.praticante.findUnique({
-    where: { id: praticanteId }, select: { id: true },
+    where: { id: praticanteId }, select: { id: true, ...camposDoCompetidor },
   })
   if (!praticante) return responderErro(event, ['Praticante não encontrado.'], `/agenda/${evento.slug}`)
 
@@ -87,6 +92,27 @@ export default defineEventHandler(async (event) => {
     diasObento: diasComoTexto(evento.diasObento),
   })
 
+  // A categoria sai do cadastro. As regras valem para a diretoria também: se
+  // nenhuma categoria serve, a correção é na tabela, não na inscrição.
+  const subeventos = evento.subeventos.map(subeventoDetalhado)
+  const competicoes: Record<string, ParticipacaoNaCompeticao> = {}
+
+  for (const subevento of subeventos) {
+    if (subevento.tipo !== 'COMPETICAO' || !inscricao.subeventoIds.includes(subevento.id)) continue
+
+    const escolha = {
+      categoriaId: texto(corpo[`categoria_${subevento.id}`]),
+      individual: marcado(corpo[`individual_${subevento.id}`]),
+      equipe: marcado(corpo[`equipe_${subevento.id}`]),
+    }
+    const compativeis = categoriasCompativeis(subevento.categorias, competidorNa(praticante, subevento))
+    const nome = `${ROTULO_DO_TIPO[subevento.tipo].toLowerCase()} de ${subevento.modalidade.nome}`
+    const decisao = decidirCompeticao(escolha, compativeis, nome)
+
+    problemas.push(...decisao.problemas)
+    if (decisao.categoriaId) competicoes[subevento.id] = { ...escolha, categoriaId: decisao.categoriaId }
+  }
+
   if (problemas.length > 0) return responderErro(event, problemas, voltar)
 
   const chave = { eventoId_praticanteId: { eventoId: evento.id, praticanteId } }
@@ -112,10 +138,22 @@ export default defineEventHandler(async (event) => {
     await tx.inscricaoSubevento.deleteMany({
       where: { inscricaoEventoId: gravada.id, subeventoId: { notIn: inscricao.subeventoIds } },
     })
-    await tx.inscricaoSubevento.createMany({
-      data: inscricao.subeventoIds.map(subeventoId => ({ inscricaoEventoId: gravada.id, subeventoId })),
-      skipDuplicates: true,
-    })
+
+    // Upsert, e não "criar se faltar": quem já estava na competição pode ter
+    // trocado de categoria ou de modo.
+    for (const subeventoId of inscricao.subeventoIds) {
+      const participacao = competicoes[subeventoId]
+      const dados = {
+        categoriaId: participacao?.categoriaId ?? null,
+        individual: participacao?.individual ?? null,
+        equipe: participacao?.equipe ?? null,
+      }
+      await tx.inscricaoSubevento.upsert({
+        where: { inscricaoEventoId_subeventoId: { inscricaoEventoId: gravada.id, subeventoId } },
+        create: { inscricaoEventoId: gravada.id, subeventoId, ...dados },
+        update: dados,
+      })
+    }
 
     await tx.encomendaObento.deleteMany({ where: { inscricaoEventoId: gravada.id } })
     await tx.encomendaObento.createMany({
