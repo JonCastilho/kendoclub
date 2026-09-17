@@ -112,35 +112,38 @@ enum SituacaoItem {
   BAIXADO
 }
 
-enum SituacaoConfirmacao {
-  VOU
-  NAO_VOU
-  TALVEZ
+/// Os subeventos têm tipos fixos, e não perguntas livres: é o tipo que permite
+/// tirar do cadastro o que um formulário perguntaria. Ver PLANO.md, etapa 7.
+enum TipoSubevento {
+  SEMINARIO
+  COMPETICAO
+  EXAME
 }
 
 // -------------------------------------------------------------------- acesso
 
 model Usuario {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  senhaHash     String
-  papel         Papel     @default(PRATICANTE)
-  ativo         Boolean   @default(true)
+  id             String    @id @default(cuid())
+  email          String    @unique
+  senhaHash      String
+  papel          Papel     @default(PRATICANTE)
+  ativo          Boolean   @default(true)
   ultimoAcessoEm DateTime?
-  criadoEm      DateTime  @default(now())
-  atualizadoEm  DateTime  @updatedAt
+  criadoEm       DateTime  @default(now())
+  atualizadoEm   DateTime  @updatedAt
 
   /// Conta de acesso ligada a um praticante. Quem é da diretoria pode não ser
   /// praticante, e praticante menor de idade pode não ter conta.
   praticante   Praticante? @relation(fields: [praticanteId], references: [id], onDelete: SetNull)
   praticanteId String?     @unique
 
-  publicacoes         Publicacao[]           @relation("AutorPublicacao")
-  eventosCriados      Evento[]               @relation("CriadorEvento")
-  mensalidadesBaixadas Mensalidade[]         @relation("BaixadaPor")
-  isencoesConcedidas  Isencao[]              @relation("IsencaoConcedidaPor")
-  declaracoesAnalisadas DeclaracaoPagamento[] @relation("DeclaracaoAnalisadaPor")
-  tokensRedefinicao   TokenRedefinicaoSenha[]
+  publicacoes           Publicacao[]            @relation("AutorPublicacao")
+  eventosCriados        Evento[]                @relation("CriadorEvento")
+  inscricoesFeitas      InscricaoEvento[]       @relation("InscritoPor")
+  mensalidadesBaixadas  Mensalidade[]           @relation("BaixadaPor")
+  isencoesConcedidas    Isencao[]               @relation("IsencaoConcedidaPor")
+  declaracoesAnalisadas DeclaracaoPagamento[]   @relation("DeclaracaoAnalisadaPor")
+  tokensRedefinicao     TokenRedefinicaoSenha[]
 
   @@index([papel])
 }
@@ -178,9 +181,9 @@ model Praticante {
 
   // Contato. Este e-mail é de contato e pode repetir entre irmãos; o e-mail
   // único é o da conta de acesso, em Usuario.
-  email                String
-  telefone             String
-  telefoneAlternativo  String?
+  email               String
+  telefone            String
+  telefoneAlternativo String?
 
   // Endereço decomposto, para servir de correspondência.
   cep         String?
@@ -214,13 +217,13 @@ model Praticante {
   autorizacaoImagemEm        DateTime?
   responsavelConsentimentoEm DateTime?
 
-  usuario      Usuario?
-  filiacoes    Filiacao[]
-  modalidades  PraticanteModalidade[]
-  isencoes     Isencao[]
-  alugueis     Aluguel[]
-  mensalidades Mensalidade[]
-  confirmacoes ConfirmacaoPresenca[]
+  usuario          Usuario?
+  filiacoes        Filiacao[]
+  modalidades      PraticanteModalidade[]
+  isencoes         Isencao[]
+  alugueis         Aluguel[]
+  mensalidades     Mensalidade[]
+  inscricoesEvento InscricaoEvento[]
 
   @@index([nomeCompleto])
   @@index([documento])
@@ -233,11 +236,11 @@ model Praticante {
 /// A migration cria um índice parcial garantindo no máximo uma filiação aberta
 /// por praticante — regra que o banco sustenta, não só a tela.
 model Filiacao {
-  id         String    @id @default(cuid())
-  inicioEm   DateTime
-  fimEm      DateTime?
+  id          String    @id @default(cuid())
+  inicioEm    DateTime
+  fimEm       DateTime?
   motivoSaida String?
-  criadoEm   DateTime  @default(now())
+  criadoEm    DateTime  @default(now())
 
   praticante   Praticante @relation(fields: [praticanteId], references: [id], onDelete: Cascade)
   praticanteId String
@@ -257,6 +260,7 @@ model Modalidade {
   criadoEm DateTime @default(now())
 
   praticantes PraticanteModalidade[]
+  subeventos  Subevento[]
 }
 
 /// O que o praticante faz, e em que grau está.
@@ -286,17 +290,17 @@ model PraticanteModalidade {
 /// dinheiro — o mês de quem tem isenção vigente gera mensalidade ISENTA, e não
 /// ausência de cobrança.
 model Isencao {
-  id          String            @id @default(cuid())
+  id          String             @id @default(cuid())
   inicioEm    DateTime
   fimEm       DateTime?
   motivo      String
   abrangencia AbrangenciaIsencao @default(TUDO)
-  criadoEm    DateTime          @default(now())
+  criadoEm    DateTime           @default(now())
 
   praticante   Praticante @relation(fields: [praticanteId], references: [id], onDelete: Cascade)
   praticanteId String
 
-  concedidaPor       Usuario? @relation("IsencaoConcedidaPor", fields: [concedidaPorUsuarioId], references: [id], onDelete: SetNull)
+  concedidaPor          Usuario? @relation("IsencaoConcedidaPor", fields: [concedidaPorUsuarioId], references: [id], onDelete: SetNull)
   concedidaPorUsuarioId String?
 
   @@index([praticanteId, inicioEm])
@@ -363,9 +367,9 @@ model Aluguel {
 // -------------------------------------------------------------- mensalidades
 
 model Mensalidade {
-  id String @id @default(cuid())
+  id             String              @id @default(cuid())
   /// Competência no formato AAAA-MM.
-  competencia String
+  competencia    String
   /// Soma das linhas, guardada para não precisar recalcular a cada listagem.
   /// Cada linha carrega o valor aplicado na geração, então reajuste de
   /// mensalidade ou de aluguel não reescreve o passado.
@@ -464,55 +468,129 @@ model Publicacao {
   @@index([visibilidade, publicadaEm])
 }
 
+/// Datas de calendário (dias, prazo) são gravadas como meia-noite UTC, como a
+/// data de nascimento e a de filiação: são dias, não instantes.
 model Evento {
-  id                String       @id @default(cuid())
-  titulo            String
-  slug              String       @unique
-  descricao         String // markdown
-  local             String?
-  inicioEm          DateTime
-  fimEm             DateTime?
-  visibilidade      Visibilidade @default(PUBLICA)
-  prazoConfirmacao  DateTime?
-  criadoEm          DateTime     @default(now())
-  atualizadoEm      DateTime     @updatedAt
+  id           String       @id @default(cuid())
+  titulo       String
+  slug         String       @unique
+  descricao    String // markdown
+  visibilidade Visibilidade @default(PUBLICA)
+
+  /// Único para o evento inteiro; vale até o fim do dia, no fuso do clube.
+  prazoInscricao DateTime
+
+  ofereceAlojamento  Boolean  @default(false)
+  /// Pelo evento inteiro, não por noite.
+  valorAlojamento    Decimal? @db.Decimal(10, 2)
+  enderecoAlojamento String?
+
+  valorObento Decimal?   @db.Decimal(10, 2)
+  /// Escolhidos entre os dias em que há subevento.
+  diasObento  DateTime[]
+
+  /// Derivados dos dias dos subeventos e recalculados quando eles mudam.
+  /// Guardados só para ordenar a agenda no banco.
+  inicioEm DateTime?
+  fimEm    DateTime?
+
+  publicadoEm  DateTime?
+  criadoEm     DateTime  @default(now())
+  atualizadoEm DateTime  @updatedAt
 
   criadoPor          Usuario @relation("CriadorEvento", fields: [criadoPorUsuarioId], references: [id], onDelete: Restrict)
   criadoPorUsuarioId String
 
-  confirmacoes ConfirmacaoPresenca[]
+  subeventos Subevento[]
+  inscricoes InscricaoEvento[]
 
   @@index([inicioEm])
   @@index([visibilidade, inicioEm])
 }
 
-/// Confirmação de presença em evento. Não confundir com o controle de presença
-/// nos treinos, previsto para depois do MVP.
-model ConfirmacaoPresenca {
-  id           String              @id @default(cuid())
-  situacao     SituacaoConfirmacao
-  criadoEm     DateTime            @default(now())
-  atualizadoEm DateTime            @updatedAt
+model Subevento {
+  id    String        @id @default(cuid())
+  tipo  TipoSubevento
+  local String
+  dias  DateTime[]
+
+  /// Valor do seminário. Competição e exame terão valor por categoria e por
+  /// graduação, em tabelas próprias.
+  valor Decimal? @db.Decimal(10, 2)
+
+  criadoEm DateTime @default(now())
+
+  evento       Evento     @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+  eventoId     String
+  modalidade   Modalidade @relation(fields: [modalidadeId], references: [id], onDelete: Restrict)
+  modalidadeId String
+
+  inscricoes InscricaoSubevento[]
+
+  /// O mesmo tipo pode se repetir em modalidades diferentes, nunca na mesma.
+  @@unique([eventoId, tipo, modalidadeId])
+}
+
+/// A inscrição no evento guarda o que é do evento todo. Pode existir só com
+/// obento — sensei que vai dar apoio, pai ou mãe de kenshi —, mas nunca vazia.
+model InscricaoEvento {
+  id           String   @id @default(cuid())
+  /// Só para quem participa de algum subevento.
+  alojamento   Boolean  @default(false)
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
 
   evento       Evento     @relation(fields: [eventoId], references: [id], onDelete: Cascade)
   eventoId     String
   praticante   Praticante @relation(fields: [praticanteId], references: [id], onDelete: Cascade)
   praticanteId String
 
+  /// Quem fez a última alteração: o próprio praticante ou alguém da diretoria.
+  inscritoPor          Usuario? @relation("InscritoPor", fields: [inscritoPorUsuarioId], references: [id], onDelete: SetNull)
+  inscritoPorUsuarioId String?
+
+  subeventos InscricaoSubevento[]
+  obentos    EncomendaObento[]
+
   @@unique([eventoId, praticanteId])
-  @@index([eventoId, situacao])
+}
+
+model InscricaoSubevento {
+  id       String   @id @default(cuid())
+  criadoEm DateTime @default(now())
+
+  inscricaoEvento   InscricaoEvento @relation(fields: [inscricaoEventoId], references: [id], onDelete: Cascade)
+  inscricaoEventoId String
+  /// Restrict: subevento com inscritos não some sem que as inscrições saiam
+  /// antes.
+  subevento         Subevento       @relation(fields: [subeventoId], references: [id], onDelete: Restrict)
+  subeventoId       String
+
+  @@unique([inscricaoEventoId, subeventoId])
+  @@index([subeventoId])
+}
+
+model EncomendaObento {
+  id         String   @id @default(cuid())
+  dia        DateTime
+  quantidade Int
+
+  inscricaoEvento   InscricaoEvento @relation(fields: [inscricaoEventoId], references: [id], onDelete: Cascade)
+  inscricaoEventoId String
+
+  @@unique([inscricaoEventoId, dia])
 }
 
 // --------------------------------------------------------------- configuração
 
 /// Linha única (id = 1). É o que cada clube personaliza ao instalar.
 model ConfiguracaoClube {
-  id            Int      @id @default(1)
-  nomeClube     String   @default("Clube de Kendo")
-  logo          String?
-  emailContato  String?
-  chavePix      String?
-  titularPix    String?
+  id           Int     @id @default(1)
+  nomeClube    String  @default("Clube de Kendo")
+  logo         String?
+  emailContato String?
+  chavePix     String?
+  titularPix   String?
 
   /// Mensalidade do clube: valor único para todos. Cada mensalidade gerada
   /// guarda o valor aplicado, então reajuste não reescreve o passado.
@@ -524,7 +602,7 @@ model ConfiguracaoClube {
   valorAluguelPadrao Decimal @default(0) @db.Decimal(10, 2)
 
   regraCobrancaAluguel RegraCobrancaAluguel @default(ABERTO_NO_PRIMEIRO_DIA)
-  corPrimaria   String   @default("#1e3a8a")
-  fusoHorario   String   @default("America/Sao_Paulo")
-  atualizadoEm  DateTime @updatedAt
+  corPrimaria          String               @default("#1e3a8a")
+  fusoHorario          String               @default("America/Sao_Paulo")
+  atualizadoEm         DateTime             @updatedAt
 }

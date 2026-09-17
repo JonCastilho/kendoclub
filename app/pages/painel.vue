@@ -48,6 +48,12 @@ const { data: resumo } = await useFetch('/api/painel/resumo')
         Mensalidades
       </ULink>
       <ULink
+        to="/eventos"
+        class="rounded-md bg-primary text-inverted font-medium px-4 py-2"
+      >
+        Eventos
+      </ULink>
+      <ULink
         to="/publicacoes"
         class="rounded-md border border-default px-4 py-2"
       >
@@ -72,13 +78,5 @@ const { data: resumo } = await useFetch('/api/painel/resumo')
         Configurações
       </ULink>
     </div>
-
-    <UAlert
-      class="mt-8"
-      color="neutral"
-      variant="subtle"
-      title="Próximas etapas"
-      description="Itens alugáveis e mensalidades entram nas etapas 3 e 4."
-    />
   </div>
 </template>

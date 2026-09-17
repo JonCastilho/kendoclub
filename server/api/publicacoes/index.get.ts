@@ -1,4 +1,5 @@
 import { urlDaCapa } from '~~/shared/imagem'
+import { resumoDoTexto } from '~~/shared/markdown'
 
 /**
  * O feed. Único endpoint de leitura que atende visitante anônimo — por isso a

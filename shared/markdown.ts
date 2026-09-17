@@ -1,7 +1,10 @@
 import MarkdownIt from 'markdown-it'
 
 /**
- * Converte o markdown das publicações em HTML.
+ * Converte o markdown das publicações e dos eventos em HTML.
+ *
+ * Fica em shared/ para que a prévia do editor, no navegador, use exatamente a
+ * mesma configuração do servidor — uma segunda cópia poderia divergir.
  *
  * `html: false` é a decisão de segurança: HTML escrito dentro do texto é
  * escapado, não interpretado. Sem isso, qualquer `<script>` no corpo de um post

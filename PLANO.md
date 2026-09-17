@@ -1,7 +1,7 @@
 # KendoClub — Plano do projeto
 
 Sistema de gestão para clubes de kendo: cadastro de praticantes, mensalidades,
-newsfeed e eventos com confirmação de presença. Software livre, pensado para que
+newsfeed e eventos com inscrição. Software livre, pensado para que
 qualquer clube no Brasil consiga subir a própria instância.
 
 ## 1. Princípios que guiam as decisões
@@ -499,7 +499,35 @@ Partes da etapa, para caber em revisões de tamanho razoável:
 | 7.4 | Fechamento: cobranças do evento e exportação para a CBK (depende dos campos da CBK) |
 | depois | Perguntas extras do evento |
 
-**Concluídas:** etapas 0, 1, 2, 3, 4, 5 e 6 (setembro de 2026).
+Decisões da parte 7.1, tomadas na implementação:
+
+- **A tela manda a inscrição inteira, não ações soltas.** Subeventos marcados,
+  alojamento e obento por dia chegam juntos, e o servidor deixa a inscrição igual
+  ao que veio. Estado vazio é desistência — não existe botão "desistir" que possa
+  divergir do que está marcado.
+- **Apagar o que outra pessoa escolheu sempre pede confirmação, dizendo quanto.**
+  Tirar a oferta de obento de um dia, tirar esse dia de um subevento ou remover
+  subevento com inscritos responde com "isto apaga N…" até a confirmação vir
+  marcada. Funciona sem JavaScript, e ninguém perde inscrição por um clique errado.
+- **A quantidade de obento por dia não tem limite.** O servidor só recusa o que
+  não é quantidade: negativo, fracionado, ou número maior do que a coluna do
+  banco guarda. O banco ainda recusa zero ou negativo por conta própria.
+- **"Hoje" é o dia no fuso do clube**, não o do servidor. Servidor em UTC já está
+  no dia seguinte às 21h de Brasília, e o prazo fecharia três horas antes.
+- **Dias trafegam como texto `AAAA-MM-DD`** nas regras e nas respostas, e são
+  gravados como meia-noite UTC, como as outras datas de calendário.
+- **A diretoria escolhe por quem inscreve com um formulário GET** (`?praticante=`),
+  que recarrega a página com a inscrição da pessoa. Praticante que mande esse
+  parâmetro continua vendo a própria inscrição, e quem tenta gravar para outra
+  pessoa recebe 403.
+- **O renderizador de markdown foi para `shared/`**, para a prévia do editor usar
+  a mesma configuração do servidor. Os botões da barra usam texto, não ícones:
+  o projeto não tem pacote de ícones, e sem ele cada ícone seria buscado num
+  serviço externo a cada visita.
+- **Competição e exame já existem no banco, mas ainda não podem ser criados** —
+  dependem das tabelas de categoria e de graduação das partes 7.2 e 7.3.
+
+**Concluídas:** etapas 0, 1, 2, 3, 4, 5 e 6 (setembro de 2026), e a parte 7.1.
 
 Decisões da etapa 6:
 

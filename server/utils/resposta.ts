@@ -17,7 +17,10 @@ export function responderErro(event: H3Event, problemas: string[], voltarPara: s
   }
 
   const query = encodeURIComponent(problemas.join('|'))
-  return sendRedirect(event, `${voltarPara}?erros=${query}`, 303)
+  // A volta pode já ter query — a inscrição feita pela diretoria volta com
+  // ?praticante= —, e um segundo "?" quebraria o endereço.
+  const separador = voltarPara.includes('?') ? '&' : '?'
+  return sendRedirect(event, `${voltarPara}${separador}erros=${query}`, 303)
 }
 
 export function responderSucesso(event: H3Event, destino: string) {

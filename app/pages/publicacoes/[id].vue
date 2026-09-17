@@ -87,20 +87,13 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
         ajuda="O endereço da notícia não muda ao corrigir o título — links já compartilhados continuam valendo."
       />
 
-      <div>
-        <label
-          for="conteudo"
-          class="block text-sm font-medium mb-1"
-        >Conteúdo</label>
-        <textarea
-          id="conteudo"
-          name="conteudo"
-          rows="12"
-          required
-          :class="classeCampo"
-          :value="publicacao.conteudo"
-        />
-      </div>
+      <EditorMarkdown
+        nome="conteudo"
+        rotulo="Conteúdo"
+        obrigatorio
+        :linhas="12"
+        :valor="publicacao.conteudo"
+      />
 
       <div>
         <label

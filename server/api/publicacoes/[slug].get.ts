@@ -1,4 +1,5 @@
 import { urlDaCapa } from '~~/shared/imagem'
+import { markdownParaHtml } from '~~/shared/markdown'
 import { podeVer } from '~~/shared/publicacao'
 
 export default defineEventHandler(async (event) => {

@@ -21,12 +21,20 @@ const { loggedIn, user } = useUserSession()
 
       <header class="border-b border-default">
         <nav class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
-          <ULink
-            to="/"
-            class="font-semibold"
-          >
-            KendoClub
-          </ULink>
+          <div class="flex items-center gap-4">
+            <ULink
+              to="/"
+              class="font-semibold"
+            >
+              KendoClub
+            </ULink>
+            <ULink
+              to="/agenda"
+              class="text-sm"
+            >
+              Agenda
+            </ULink>
+          </div>
 
           <div
             v-if="loggedIn"

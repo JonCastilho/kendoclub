@@ -78,23 +78,12 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
           obrigatorio
         />
 
-        <div>
-          <label
-            for="conteudo"
-            class="block text-sm font-medium mb-1"
-          >Conteúdo</label>
-          <textarea
-            id="conteudo"
-            name="conteudo"
-            rows="8"
-            required
-            :class="classeCampo"
-          />
-          <p class="mt-1 text-xs text-muted">
-            Aceita markdown simples: **negrito**, *itálico*, listas e links.
-            HTML escrito aqui aparece como texto, não é interpretado.
-          </p>
-        </div>
+        <EditorMarkdown
+          nome="conteudo"
+          rotulo="Conteúdo"
+          obrigatorio
+          :linhas="8"
+        />
 
         <div>
           <label
