@@ -34,8 +34,9 @@ qualquer clube no Brasil consiga subir a própria instância.
   baixa manual, painel de inadimplência, visão do praticante com a chave Pix.
 - **Newsfeed** — posts com visibilidade pública ou restrita a logados; a parte
   pública é a página inicial do clube na internet.
-- **Eventos e campeonatos** — divulgação, confirmação de presença
-  (vou / não vou / talvez) e lista de confirmados para a diretoria.
+- **Eventos e campeonatos** — divulgação e inscrição em seminários, competições
+  e exames, com lista de inscritos para a diretoria. Substitui o formulário
+  externo usado hoje.
 - **Acesso** — dois papéis: diretoria e praticante.
 
 ### Fora do MVP (encaixa depois)
@@ -97,11 +98,30 @@ LinhaMensalidade      id, mensalidadeId, tipo (MENSALIDADE|ALUGUEL|OUTRO),
 Publicacao            id, titulo, slug, conteudo (markdown),
                       imagemCapa? (nome do arquivo em disco, não endereço),
                       visibilidade (PUBLICA|RESTRITA), publicadaEm?, autorUsuarioId
-Evento                id, titulo, slug, descricao (markdown), inicioEm, fimEm?,
-                      local?, visibilidade (PUBLICA|RESTRITA),
-                      prazoConfirmacao?, criadoPorUsuarioId
-ConfirmacaoPresenca   id, eventoId, praticanteId,
-                      situacao (VOU|NAO_VOU|TALVEZ), atualizadoEm
+Evento                id, titulo, slug, descricao (markdown),
+                      visibilidade (PUBLICA|RESTRITA), prazoInscricao,
+                      ofereceAlojamento, valorAlojamento?, enderecoAlojamento?,
+                      valorObento?, diasObento (lista de datas),
+                      inicioEm?, fimEm? (derivados dos dias dos subeventos),
+                      criadoPorUsuarioId
+Subevento             id, eventoId, tipo (SEMINARIO|COMPETICAO|EXAME),
+                      modalidadeId, local, dias (lista de datas),
+                      valor? (só seminário)
+                      único por (eventoId, tipo, modalidadeId)
+CategoriaCompeticao   id, subeventoId, nome, sexo (MASCULINO|FEMININO|MISTO),
+                      idadeMinima?, idadeMaxima?, grauMinimo?, grauMaximo?, valor
+GraduacaoExame        id, subeventoId, grau, valor
+                      único por (subeventoId, grau)
+InscricaoEvento       id, eventoId, praticanteId, alojamento,
+                      inscritoPorUsuarioId, criadoEm
+                      único por (eventoId, praticanteId)
+InscricaoSubevento    id, inscricaoEventoId, subeventoId, categoriaId?,
+                      individual?, equipe?, grauPretendido?
+                      único por (inscricaoEventoId, subeventoId)
+EncomendaObento       id, inscricaoEventoId, dia, quantidade
+                      único por (inscricaoEventoId, dia)
+CarenciaGraduacao     id, modalidadeId, grau (o pretendido), mesesMinimos
+                      único por (modalidadeId, grau)
 ConfiguracaoClube     nomeClube, logo?, chavePix, titularPix, emailContato,
                       valorMensalidade, diaVencimento, valorAluguelPadrao,
                       fusoHorario (America/Sao_Paulo), corPrimaria
@@ -163,8 +183,9 @@ Notas de modelagem:
   (10º kyu a 8º dan) e `Modalidade.kyuInicial` decide onde a lista começa em cada
   modalidade — kendo pode começar no 6º kyu e iaido no 5º. Mudar a faixa nunca
   vira migração de banco.
-- `ConfirmacaoPresenca` não se chama `Presenca` porque o controle de presença nos
-  treinos, previsto para depois do MVP, vai precisar desse nome.
+- `InscricaoEvento` substitui a `ConfirmacaoPresenca` (vou / não vou / talvez) reservada
+  no início: o clube não confirma presença em evento, se inscreve em partes dele.
+  O nome `Presenca` continua livre para o controle de presença nos treinos.
 - `Grau` começa no 8º kyu para atender clubes com turma infantil.
 - `ConfiguracaoClube` é uma linha única; é o que cada clube personaliza ao
   instalar.
@@ -175,7 +196,8 @@ Notas de modelagem:
 |---|---|---|---|
 | Ver posts e eventos públicos | sim | sim | sim |
 | Ver posts e eventos restritos | sim | sim | não |
-| Confirmar presença em evento | sim | sim | não |
+| Inscrever-se em evento, dentro do prazo | sim | sim | não |
+| Inscrever e remover qualquer praticante, a qualquer momento | sim | não | não |
 | Ver as próprias mensalidades | sim | sim | não |
 | Cadastrar e editar praticantes | sim | não | não |
 | Gerar cobranças e dar baixa | sim | não | não |
@@ -189,12 +211,12 @@ interface esconde é conveniência, não segurança.
 
 **Público:** home com o feed público, página do post, agenda de eventos, login.
 
-**Praticante:** feed completo, evento com botão de confirmação, "minhas
+**Praticante:** feed completo, evento com inscrição por subevento, "minhas
 mensalidades" (em aberto e pagas, com a chave Pix para copiar), meus dados.
 
-**Diretoria:** painel (inadimplentes do mês, próximos eventos, confirmações),
+**Diretoria:** painel (inadimplentes do mês, próximos eventos, inscrições),
 praticantes (lista com filtro por situação, ficha, graduações), mensalidades
-(gerar mês, dar baixa), posts, eventos (com lista de confirmados), configurações
+(gerar mês, dar baixa), posts, eventos (com lista de inscritos), configurações
 do clube, usuários.
 
 ## 7. Stack detalhada
@@ -277,7 +299,7 @@ armazenamento S3-compatível fica como opção posterior atrás da mesma interfa
 | 4 | Mensalidades: geração do mês com linhas, baixa, inadimplência, visão do praticante com Pix | Fecha um mês inteiro de cobrança sem planilha |
 | 5 | Declaração de pagamento: o praticante avisa que pagou, a diretoria confere e dá baixa | A conferência sai do WhatsApp e vira fila no sistema |
 | 6 | Newsfeed: posts públicos e restritos, home pública, imagem de capa | O clube publica e o post aparece só para quem deve ver |
-| 7 | Eventos: cadastro, agenda, confirmação de presença, lista de confirmados | Um campeonato real é divulgado e confirmado pelo app |
+| 7 | Eventos: subeventos (seminário, competição, exame), inscrição, lista de inscritos, cobrança no fechamento, exportação para a CBK | Um campeonato real é divulgado e tem as inscrições feitas pelo app, sem formulário externo |
 | 8 | Empacotamento: Docker, docs de instalação, dados de demonstração, CI | Outro clube instala seguindo só o README |
 
 As etapas 1 a 7 já são utilizáveis pelo seu clube antes de a 8 existir. A etapa 8
@@ -345,6 +367,137 @@ Sobre anexar o comprovante, quando chegar a hora — levantamento de agosto/2026
   dependência com binário nativo. Limite de tamanho por arquivo resolve.
 - Entrega sempre por rota autenticada que confere de quem é a cobrança; nunca
   pasta pública. Tipo validado pelos bytes, não pela extensão.
+
+### Eventos e inscrições (etapa 7)
+
+Levantadas com a diretoria em setembro de 2026. Hoje as inscrições são feitas por
+formulário externo, exportado para planilha e digitado no sistema da CBK.
+
+**Por que subeventos e não perguntas livres.** Um construtor de formulários
+genérico seria caro de fazer e de manter, e ainda obrigaria a pessoa a digitar o
+que o cadastro já sabe. Com tipos fixos — seminário, competição, exame — a
+categoria sai da idade e da graduação, e o exame sai do grau atual: a inscrição
+vira escolher de que partes participar. Perguntas que não cabem nesses tipos
+(camiseta, por exemplo) ficam para depois, quando forem definidas.
+
+Estrutura:
+
+- **A descrição usa o mesmo markdown das notícias, com barra de botões** para
+  negrito, itálico, lista e link, e prévia do resultado. Um editor visual
+  guardaria HTML e exigiria biblioteca de limpeza no servidor contra script
+  embutido; a barra dá o conforto sem mudar o formato nem a proteção. Vale para
+  eventos e notícias.
+- Um evento é composto de um ou mais subeventos. Cada subevento tem **um tipo e
+  uma modalidade**; o mesmo tipo pode se repetir em modalidades diferentes (exame
+  de kendo e exame de iaido), nunca na mesma — garantido por índice único.
+- **Dias e local são do subevento.** Cada subevento acontece em um ou mais dias,
+  só a data, sem horário; subeventos podem cair no mesmo dia. O início e o fim do
+  evento são o primeiro e o último dia entre todos eles — guardados no evento
+  para ordenar a agenda, e recalculados sempre que os dias de um subevento mudam.
+- **Evento só é publicado com ao menos um subevento com data.** Sem isso não há o
+  que mostrar na agenda.
+- **O prazo de inscrição é um só, do evento inteiro**, e não pode cair depois do
+  primeiro dia. Vale até o fim do dia do prazo, no fuso do clube.
+- **Alojamento é do evento.** O evento diz se oferece; se oferece, informa custo
+  e endereço. O custo é pelo evento inteiro, não por noite. O limite de vagas é
+  do organizador e o sistema não controla. Transporte ficou de fora: aparece nas
+  cartas-convite, mas há anos sempre como "não".
+- **Obento é encomendado por dia.** O evento tem um valor por unidade e a lista
+  de dias com oferta, escolhida entre os dias em que há subevento — por isso só
+  é configurável depois de os subeventos terem data. Tirar a oferta de um dia que
+  já tem encomendas, ou tirar de um subevento o dia que tinha oferta, apaga as
+  encomendas daquele dia; a tela avisa quantas antes de confirmar.
+
+Inscrição em duas camadas:
+
+- **A inscrição no evento** guarda o que é do evento todo: se a pessoa quer
+  alojamento — opcional, e só para quem participa de algum subevento; desistir
+  do último subevento desmarca o alojamento —, e quantos obentos encomenda em cada dia com oferta.
+  A quantidade é livre — pode incluir acompanhantes — e se edita com botões de
+  menos e mais, para evitar erro de digitação; sem JavaScript, o campo numérico
+  continua funcionando. Obento e alojamento seguem o prazo como o resto da
+  inscrição.
+- **Dentro dela, uma inscrição por subevento**, sempre no subevento inteiro, não
+  por dia.
+- **Dá para se inscrever no evento só para encomendar obento**, sem nenhum
+  subevento: é o caso de sensei que vai dar apoio e de pai ou mãe de kenshi, que
+  encomendam pela conta do praticante. Inscrição sem subevento e sem obento não
+  existe; desistir de tudo é desistir do evento.
+- A lista de inscritos traz o total de obentos por dia, que é o número que a
+  diretoria repassa ao organizador.
+
+Quem se inscreve:
+
+- **Qualquer praticante com acesso ao sistema.** Estar filiado não é condição; a
+  lista de inscritos mostra se cada um está filiado ao clube.
+- **Até o prazo, o praticante se inscreve e desiste sozinho.** Depois do prazo,
+  não mexe mais.
+- **A diretoria inscreve e remove qualquer praticante, a qualquer momento**,
+  inclusive depois do prazo. No topo da página do evento ela escolhe por quem
+  está inscrevendo — ela mesma ou qualquer outro praticante — e a partir dali a
+  tela é a mesma do praticante. "Ela mesma" só aparece se a conta estiver ligada
+  a um praticante, já que diretoria pode não treinar. A lista inclui praticante
+  sem acesso ao sistema, como criança sem conta: é a diretoria que o inscreve. O prazo é a única regra que ela dispensa:
+  categoria, banca de exame e alojamento valem igual. Se não há categoria, a
+  correção é na tabela, não na inscrição.
+- Praticante sem a modalidade no cadastro conta como mukyu nela.
+
+Seminário:
+
+- Participa ou não. O valor é do subevento.
+
+Competição:
+
+- **Cada campeonato traz a própria tabela de categorias.** Uma categoria é
+  definida por sexo (masculino, feminino ou misto), faixa de idade e faixa de
+  graduação, e tem o seu valor — que cobre individual e equipe juntos. Faixa em
+  branco é faixa sem limite.
+- **A idade é a que a pessoa completa ou completou no ano do evento**: ano do
+  evento menos ano de nascimento.
+- A inscrição marca individual, equipe ou os dois; ao menos um. **A diretoria
+  monta as equipes depois**, fora do sistema.
+- **Uma categoria compatível** entra sozinha. **Mais de uma**: a pessoa escolhe
+  uma. **Nenhuma**: a inscrição é recusada com aviso de que a tabela de
+  categorias provavelmente está incompleta.
+
+Exame:
+
+- **A graduação pretendida é sempre a seguinte à atual** na modalidade, calculada
+  pelo sistema, com uma exceção: **abaixo do 2º kyu a pessoa é "aspirante"**, e
+  aspirante que presta exame é candidato direto ao 1º kyu. Mukyu, 5º kyu e 3º kyu
+  vão todos para o 1º kyu; 2º kyu vai para o 1º kyu por ser o seguinte; daí em
+  diante, 1º kyu → 1º dan → 2º dan. Cada graduação oferecida no exame tem seu
+  valor.
+- **Se o exame não oferece a graduação seguinte, a inscrição é recusada**,
+  avisando que não haverá banca para ela.
+- **Carência não bloqueia.** A tabela de tempo mínimo é configurável por clube e
+  por modalidade (graduação pretendida → meses desde a última graduação, contados
+  até a data do evento). Quem não cumpre é inscrito normalmente, e o aviso aparece
+  para a diretoria na lista de inscritos. Sem data da última graduação no
+  cadastro, o aviso é "data desconhecida". A tabela nasce vazia: sem regra, sem
+  aviso.
+- **O resultado do exame não tem vínculo com o evento.** A diretoria atualiza a
+  graduação no cadastro, como já faz.
+
+Dinheiro:
+
+- **A cobrança só nasce no fechamento das inscrições**, gerada pela diretoria,
+  com a soma dos valores de cada praticante naquele evento (subeventos, mais o
+  alojamento se pediu, mais os obentos encomendados) — um retrato da lista
+  naquele momento, como a mensalidade. Enquanto o prazo está aberto, inscrever e
+  desistir não mexem em dinheiro.
+- Remoção depois de pago não devolve nada sozinha: fica registrada e a diretoria
+  resolve.
+
+Partes da etapa, para caber em revisões de tamanho razoável:
+
+| Parte | Entrega |
+|---|---|
+| 7.1 | Evento, subeventos com dias e local, alojamento, obento por dia, prazo, seminário, inscrição e desistência, lista de inscritos com filiação |
+| 7.2 | Competição: tabela de categorias, cálculo de idade e categoria |
+| 7.3 | Exame: graduações oferecidas, graduação seguinte, tabela e aviso de carência |
+| 7.4 | Fechamento: cobranças do evento e exportação para a CBK (depende dos campos da CBK) |
+| depois | Perguntas extras do evento |
 
 **Concluídas:** etapas 0, 1, 2, 3, 4, 5 e 6 (setembro de 2026).
 
