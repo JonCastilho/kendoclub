@@ -79,6 +79,8 @@ Modalidade            id, nome (único), kyuInicial, ativa
 PraticanteModalidade  id, praticanteId, modalidadeId, desde, ate?,
                       grau? (KYU_10..KYU_1, DAN_1..DAN_8), graduadoEm?,
                       observacoesGraduacao?
+ShogoPraticante       id, praticanteModalidadeId, shogo (RENSHI|KYOSHI), obtidoEm
+                      único por (praticanteModalidadeId, shogo)
 Isencao               id, praticanteId, inicioEm, fimEm?, motivo,
                       concedidaPorUsuarioId
 
@@ -110,17 +112,19 @@ Subevento             id, eventoId, tipo (SEMINARIO|COMPETICAO|EXAME),
                       único por (eventoId, tipo, modalidadeId)
 CategoriaCompeticao   id, subeventoId, nome, sexo (MASCULINO|FEMININO|MISTO),
                       idadeMinima?, idadeMaxima?, grauMinimo?, grauMaximo?, isenta
-GraduacaoExame        id, subeventoId, grau, valor
+GraduacaoExame        id, subeventoId, grau (1º kyu ou dan), valor
                       único por (subeventoId, grau)
+ShogoExame            id, subeventoId, shogo (RENSHI|KYOSHI), valor
+                      único por (subeventoId, shogo)
 InscricaoEvento       id, eventoId, praticanteId, alojamento,
                       inscritoPorUsuarioId, criadoEm
                       único por (eventoId, praticanteId)
 InscricaoSubevento    id, inscricaoEventoId, subeventoId, categoriaId?,
-                      individual?, equipe?, grauPretendido?
+                      individual?, equipe?, grauPretendido?, shogoPretendido?
                       único por (inscricaoEventoId, subeventoId)
 EncomendaObento       id, inscricaoEventoId, dia, quantidade
                       único por (inscricaoEventoId, dia)
-CarenciaGraduacao     id, modalidadeId, grau (o pretendido), mesesMinimos
+CarenciaGraduacao     id, modalidadeId, grau? (1º kyu ou dan) ou shogo?, mesesMinimos
                       único por (modalidadeId, grau)
 ConfiguracaoClube     nomeClube, logo?, chavePix, titularPix, emailContato,
                       valorMensalidade, diaVencimento, valorAluguelPadrao,
@@ -480,6 +484,11 @@ Exame:
   para a diretoria na lista de inscritos. Sem data da última graduação no
   cadastro, o aviso é "data desconhecida". A tabela nasce vazia: sem regra, sem
   aviso.
+- **Shogo (Renshi e Kyoshi) é exame do mesmo subevento.** Renshi: 5º dan ou acima,
+  ainda sem título. Kyoshi: qualquer detentor de Renshi. Quem pode prestar dan e
+  shogo escolhe um, outro ou os dois.
+- **O título é registrado à parte da graduação**, com a data em que foi obtido.
+  A carência do Renshi conta da última graduação; a do Kyoshi, do Renshi.
 - **O resultado do exame não tem vínculo com o evento.** A diretoria atualiza a
   graduação no cadastro, como já faz.
 
@@ -555,7 +564,46 @@ Decisões da parte 7.2, tomadas na implementação:
 - **Nome de categoria é único dentro da competição** — duas "Adulto" na mesma
   tabela tornariam a lista de inscritos ambígua.
 
-**Concluídas:** etapas 0, 1, 2, 3, 4, 5 e 6 (setembro de 2026), e as partes 7.1 e 7.2.
+Decisões da parte 7.3, tomadas na implementação:
+
+- **Exame sem graduação oferecida não é publicado**, pelo mesmo motivo da
+  competição sem categoria.
+- **Só 1º kyu e os dans podem ser oferecidos.** Pela regra do aspirante, nenhum
+  exame leva a um kyu abaixo do 1º, então oferecer 3º kyu criaria banca que
+  ninguém consegue usar.
+- **A carência fica na tela de modalidades**, uma linha por graduação de exame
+  (1º kyu e de 1º a 8º dan), em meses. Campo em branco tira a regra; não há
+  valor padrão, porque um número inventado viraria aviso falso.
+- **Mukyu conta a carência a partir da data em que começou na modalidade**, já
+  que nunca se graduou. Quem nem tem a modalidade no cadastro recebe o aviso de
+  data desconhecida.
+- **O aviso de carência só aparece para a diretoria**, na lista de inscritos, como
+  pedido. A tela de inscrição mostra a graduação atual e a que será prestada.
+- **A graduação de uma banca já oferecida não muda**; só o valor. Quem se
+  inscreveu para 1º dan não pode passar a estar inscrito para outra graduação.
+  Remover a banca com inscritos pede confirmação e tira essas pessoas só do exame.
+- **A inscrição guarda a graduação prestada**, calculada no momento em que é
+  salva. Depois do exame, a diretoria atualiza o cadastro sem vínculo com o
+  evento, como combinado.
+
+- **O shogo fica numa tabela própria, não na escala de graduação.** A primeira
+  versão pôs "6º dan Renshi" na escala; a diretoria corrigiu: qualquer detentor
+  de Renshi pode prestar Kyoshi, respeitada a carência — e essa carência conta
+  da data do Renshi, que a escala não guardava (só a do último dan). Com tabela
+  à parte, cada título tem sua data, a escala e as faixas de categoria seguem só
+  com kyu e dan, e quem chega a Kyoshi mantém a linha do Renshi.
+- **O cadastro não deixa título sem base**: Renshi pede 5º dan, Kyoshi pede
+  Renshi e não pode ser anterior a ele; baixar a graduação abaixo do 5º dan ou
+  remover o Renshi antes do Kyoshi é recusado.
+- **Remover uma banca tira só aquele exame**: quem prestava dan e shogo continua
+  no outro; quem prestava só o removido sai do exame.
+- **A ordem da escala vem do código, nunca do enum no banco.** Descobriu-se que
+  10º e 9º kyu estão no fim da lista do Postgres — foram acrescentados depois.
+- **O valor de participação é informado depois de criar o subevento**, na tela
+  de edição, como pedido pela diretoria. Publicar exige valor em seminário e
+  competição, e banca — de dan ou de shogo — no exame.
+
+**Concluídas:** etapas 0, 1, 2, 3, 4, 5 e 6 (setembro de 2026), e as partes 7.1, 7.2 e 7.3.
 
 Decisões da etapa 6:
 

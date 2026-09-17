@@ -11,7 +11,10 @@ export default defineEventHandler(async (event) => {
     include: {
       usuario: { select: { email: true, ativo: true, ultimoAcessoEm: true } },
       filiacoes: { orderBy: { inicioEm: 'desc' } },
-      modalidades: { include: { modalidade: true }, orderBy: { desde: 'asc' } },
+      modalidades: {
+        include: { modalidade: true, shogos: { select: { shogo: true, obtidoEm: true }, orderBy: { obtidoEm: 'asc' } } },
+        orderBy: { desde: 'asc' },
+      },
       isencoes: { orderBy: { inicioEm: 'desc' } },
       alugueis: {
         orderBy: { inicioEm: 'desc' },
@@ -35,6 +38,7 @@ export default defineEventHandler(async (event) => {
     grau: vinculo.grau,
     graduadoEm: vinculo.graduadoEm,
     observacoesGraduacao: vinculo.observacoesGraduacao,
+    shogos: vinculo.shogos,
   }))
 
   // Itens livres para vincular, e o valor sugerido do clube: o aluguel também

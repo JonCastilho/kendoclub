@@ -132,37 +132,43 @@ describe('problemasDoEvento', () => {
 })
 
 describe('problemasDoSubevento', () => {
+  const existente = { existente: true }
   const valido = {
     tipo: 'SEMINARIO', modalidadeId: 'kendo', local: 'Ginásio', dias: ['2026-03-14'], valor: 80,
   }
 
   it('aceita seminário completo', () => {
-    expect(problemasDoSubevento(valido)).toEqual([])
+    expect(problemasDoSubevento(valido, existente)).toEqual([])
   })
 
   it('aceita seminário gratuito', () => {
-    expect(problemasDoSubevento({ ...valido, valor: 0 })).toEqual([])
+    expect(problemasDoSubevento({ ...valido, valor: 0 }, existente)).toEqual([])
   })
 
   it('exige valor do seminário, distinguindo vazio de zero', () => {
-    expect(problemasDoSubevento({ ...valido, valor: null })[0]).toContain('Use 0')
+    expect(problemasDoSubevento({ ...valido, valor: null }, existente)[0]).toContain('Use 0')
   })
 
   it('exige modalidade, local e ao menos um dia', () => {
-    expect(problemasDoSubevento({ ...valido, modalidadeId: '', local: '', dias: [] })).toHaveLength(3)
+    expect(problemasDoSubevento({ ...valido, modalidadeId: '', local: '', dias: [] }, existente)).toHaveLength(3)
   })
 
   it('recusa dia inválido', () => {
-    expect(problemasDoSubevento({ ...valido, dias: ['2026-02-30'] })).toHaveLength(1)
+    expect(problemasDoSubevento({ ...valido, dias: ['2026-02-30'] }, existente)).toHaveLength(1)
+  })
+
+  it('não pede valor ao criar: ele é informado depois', () => {
+    expect(problemasDoSubevento({ ...valido, valor: null }, { existente: false })).toEqual([])
+    expect(problemasDoSubevento({ ...valido, tipo: 'COMPETICAO', valor: null }, { existente: false })).toEqual([])
   })
 
   it('exige valor de participação também na competição', () => {
-    expect(problemasDoSubevento({ ...valido, tipo: 'COMPETICAO' })).toEqual([])
-    expect(problemasDoSubevento({ ...valido, tipo: 'COMPETICAO', valor: null })[0]).toContain('Use 0')
+    expect(problemasDoSubevento({ ...valido, tipo: 'COMPETICAO' }, existente)).toEqual([])
+    expect(problemasDoSubevento({ ...valido, tipo: 'COMPETICAO', valor: null }, existente)[0]).toContain('Use 0')
   })
 
-  it('ainda não aceita exame', () => {
-    expect(problemasDoSubevento({ ...valido, tipo: 'EXAME' })).toHaveLength(1)
+  it('aceita exame sem valor próprio, que é por graduação', () => {
+    expect(problemasDoSubevento({ ...valido, tipo: 'EXAME', valor: null }, existente)).toEqual([])
   })
 })
 
@@ -181,6 +187,22 @@ describe('problemasParaPublicar', () => {
     expect(problemasParaPublicar([
       { dias: ['2026-03-14'], tipo: 'COMPETICAO', categorias: 2 },
     ])).toEqual([])
+  })
+
+  it('exige banca em todo exame — graduação ou shogo', () => {
+    expect(problemasParaPublicar([
+      { dias: ['2026-03-14'], tipo: 'EXAME', graduacoes: 0, shogos: 0, nome: 'exame de kendo' },
+    ])).toEqual(['Ofereça ao menos uma graduação em exame de kendo antes de publicar.'])
+    expect(problemasParaPublicar([
+      { dias: ['2026-03-14'], tipo: 'EXAME', graduacoes: 0, shogos: 1 },
+    ])).toEqual([])
+  })
+
+  it('exige valor de participação no seminário e na competição', () => {
+    expect(problemasParaPublicar([
+      { dias: ['2026-03-14'], tipo: 'SEMINARIO', valor: null, nome: 'seminário de kendo' },
+    ])).toEqual(['Informe o valor de participação em seminário de kendo antes de publicar.'])
+    expect(problemasParaPublicar([{ dias: ['2026-03-14'], tipo: 'SEMINARIO', valor: 0 }])).toEqual([])
   })
 })
 

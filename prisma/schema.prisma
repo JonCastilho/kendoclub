@@ -64,6 +64,13 @@ enum Grau {
   DAN_8
 }
 
+/// Título (shogo). Fica fora da escala de graduação: tem data própria, e a
+/// carência de Kyoshi conta a partir do Renshi, não do dan.
+enum Shogo {
+  RENSHI
+  KYOSHI
+}
+
 /// O que a isenção cobre. Existe para que a escolha seja do clube, e não uma
 /// decisão implícita no código: "gratuidade" pode significar perdoar tudo ou só
 /// a mensalidade, e os dois casos acontecem.
@@ -268,6 +275,7 @@ model Modalidade {
 
   praticantes PraticanteModalidade[]
   subeventos  Subevento[]
+  carencias   CarenciaGraduacao[]
 }
 
 /// O que o praticante faz, e em que grau está.
@@ -284,6 +292,7 @@ model PraticanteModalidade {
   grau                 Grau?
   graduadoEm           DateTime?
   observacoesGraduacao String?
+  shogos               ShogoPraticante[]
 
   praticante   Praticante @relation(fields: [praticanteId], references: [id], onDelete: Cascade)
   praticanteId String
@@ -291,6 +300,19 @@ model PraticanteModalidade {
   modalidadeId String
 
   @@unique([praticanteId, modalidadeId])
+}
+
+/// Título (shogo) do praticante numa modalidade. Uma linha por título: quem
+/// chega a Kyoshi mantém a linha do Renshi, com a data em que o obteve.
+model ShogoPraticante {
+  id       String   @id @default(cuid())
+  shogo    Shogo
+  obtidoEm DateTime
+
+  praticanteModalidade   PraticanteModalidade @relation(fields: [praticanteModalidadeId], references: [id], onDelete: Cascade)
+  praticanteModalidadeId String
+
+  @@unique([praticanteModalidadeId, shogo])
 }
 
 /// Gratuidade de mensalidade. Tem vigência, motivo e responsável porque mexe em
@@ -522,7 +544,7 @@ model Subevento {
   dias  DateTime[]
 
   /// Valor de participação, no seminário e na competição — nesta, cobre
-  /// individual e equipe. Exame terá valor por graduação, em tabela própria.
+  /// individual e equipe. Exame tem valor por graduação, em GraduacaoExame.
   valor Decimal? @db.Decimal(10, 2)
 
   criadoEm DateTime @default(now())
@@ -534,6 +556,8 @@ model Subevento {
 
   inscricoes InscricaoSubevento[]
   categorias CategoriaCompeticao[]
+  graduacoes GraduacaoExame[]
+  shogos     ShogoExame[]
 
   /// O mesmo tipo pode se repetir em modalidades diferentes, nunca na mesma.
   @@unique([eventoId, tipo, modalidadeId])
@@ -562,6 +586,48 @@ model CategoriaCompeticao {
   inscricoes InscricaoSubevento[]
 
   @@unique([subeventoId, nome])
+}
+
+/// Graduação com banca num exame, e o valor para prestá-la.
+model GraduacaoExame {
+  id       String   @id @default(cuid())
+  grau     Grau
+  valor    Decimal  @db.Decimal(10, 2)
+  criadoEm DateTime @default(now())
+
+  subevento   Subevento @relation(fields: [subeventoId], references: [id], onDelete: Cascade)
+  subeventoId String
+
+  @@unique([subeventoId, grau])
+}
+
+/// Shogo com banca num exame, e o valor para prestá-lo.
+model ShogoExame {
+  id       String   @id @default(cuid())
+  shogo    Shogo
+  valor    Decimal  @db.Decimal(10, 2)
+  criadoEm DateTime @default(now())
+
+  subevento   Subevento @relation(fields: [subeventoId], references: [id], onDelete: Cascade)
+  subeventoId String
+
+  @@unique([subeventoId, shogo])
+}
+
+/// Tempo mínimo desde a última graduação para prestar um exame: de `grau`
+/// (1º kyu ou dan) ou de `shogo`. Exatamente um dos dois é preenchido —
+/// garantido por CHECK na migration. Sem linha, não há aviso.
+model CarenciaGraduacao {
+  id           String @id @default(cuid())
+  grau         Grau?
+  shogo        Shogo?
+  mesesMinimos Int
+
+  modalidade   Modalidade @relation(fields: [modalidadeId], references: [id], onDelete: Cascade)
+  modalidadeId String
+
+  @@unique([modalidadeId, grau])
+  @@unique([modalidadeId, shogo])
 }
 
 model InscricaoEvento {
@@ -595,6 +661,11 @@ model InscricaoSubevento {
   categoriaId String?
   individual  Boolean?
   equipe      Boolean?
+
+  /// Só em exame: a graduação e o shogo prestados, calculados do cadastro na
+  /// inscrição. Dá para prestar os dois no mesmo exame.
+  grauPretendido  Grau?
+  shogoPretendido Shogo?
 
   inscricaoEvento   InscricaoEvento @relation(fields: [inscricaoEventoId], references: [id], onDelete: Cascade)
   inscricaoEventoId String

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { grausDaModalidade, rotuloDaGraduacao, rotuloDoGrau } from '~~/shared/graduacao'
+import { ROTULO_DO_SHOGO, grausDaModalidade, rotuloDaGraduacao, rotuloDoGrau } from '~~/shared/graduacao'
+import { shogoPretendido } from '~~/shared/exame'
 import { descricaoDoAluguel } from '~~/shared/aluguel'
 import { formatarReais } from '~~/shared/dinheiro'
 
@@ -19,6 +20,10 @@ const acessoLink = computed(() => String(rota.query.acessoLink ?? ''))
 function data(valor: string | Date | null | undefined) {
   if (!valor) return '—'
   return new Date(valor).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
+}
+
+function titulosDe(modalidade: { shogos: Array<{ shogo: 'RENSHI' | 'KYOSHI' }> }) {
+  return modalidade.shogos.map(s => s.shogo)
 }
 
 /** Modalidades ainda não vinculadas, para não oferecer repetição. */
@@ -314,6 +319,14 @@ const classeBotao = 'rounded-md border border-default px-3 py-2 text-sm'
               v-if="modalidade.graduadoEm"
               class="text-muted"
             > desde {{ data(modalidade.graduadoEm) }}</span>
+            <span
+              v-for="titulo in modalidade.shogos"
+              :key="titulo.shogo"
+              class="block"
+            >
+              <span class="font-medium">{{ ROTULO_DO_SHOGO[titulo.shogo] }}</span>
+              <span class="text-muted"> desde {{ data(titulo.obtidoEm) }}</span>
+            </span>
           </div>
         </div>
 
@@ -413,6 +426,91 @@ const classeBotao = 'rounded-md border border-default px-3 py-2 text-sm'
                 Salvar graduação
               </button>
             </form>
+          </template>
+        </UModal>
+
+        <!-- Título (shogo) tem data própria: a carência do Kyoshi conta do Renshi. -->
+        <UModal
+          v-if="modalidade.shogos.length || shogoPretendido(modalidade.grau, titulosDe(modalidade))"
+          :title="`Shogo em ${modalidade.modalidade}`"
+        >
+          <button
+            type="button"
+            :class="`mt-3 ml-2 ${classeBotao}`"
+          >
+            Shogo
+          </button>
+
+          <template #body>
+            <div class="flex flex-col gap-4">
+              <form
+                v-for="titulo in modalidade.shogos"
+                :key="titulo.shogo"
+                method="post"
+                :action="`/api/praticantes/${id}/shogos/remover`"
+                class="flex items-center justify-between gap-3"
+              >
+                <input
+                  type="hidden"
+                  name="modalidadeId"
+                  :value="modalidade.modalidadeId"
+                >
+                <input
+                  type="hidden"
+                  name="shogo"
+                  :value="titulo.shogo"
+                >
+                <span>
+                  {{ ROTULO_DO_SHOGO[titulo.shogo] }}
+                  <span class="text-muted">desde {{ data(titulo.obtidoEm) }}</span>
+                </span>
+                <button
+                  type="submit"
+                  :class="classeBotao"
+                >
+                  Remover
+                </button>
+              </form>
+
+              <form
+                v-if="shogoPretendido(modalidade.grau, titulosDe(modalidade))"
+                method="post"
+                :action="`/api/praticantes/${id}/shogos`"
+                class="flex flex-col gap-4"
+              >
+                <input
+                  type="hidden"
+                  name="modalidadeId"
+                  :value="modalidade.modalidadeId"
+                >
+                <input
+                  type="hidden"
+                  name="shogo"
+                  :value="shogoPretendido(modalidade.grau, titulosDe(modalidade))"
+                >
+                <div>
+                  <label
+                    :for="`shogoEm-${modalidade.modalidadeId}`"
+                    class="block text-sm font-medium mb-1"
+                  >Data em que obteve o
+                    {{ ROTULO_DO_SHOGO[shogoPretendido(modalidade.grau, titulosDe(modalidade))!] }}</label>
+                  <input
+                    :id="`shogoEm-${modalidade.modalidadeId}`"
+                    type="date"
+                    name="obtidoEm"
+                    :value="hoje"
+                    required
+                    class="w-full rounded-md border border-default bg-default px-3 py-2"
+                  >
+                </div>
+                <button
+                  type="submit"
+                  class="rounded-md bg-primary text-inverted font-medium px-4 py-2"
+                >
+                  Registrar {{ ROTULO_DO_SHOGO[shogoPretendido(modalidade.grau, titulosDe(modalidade))!] }}
+                </button>
+              </form>
+            </div>
           </template>
         </UModal>
       </div>

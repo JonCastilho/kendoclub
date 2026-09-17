@@ -1,9 +1,12 @@
 import type { Grau, Prisma } from '@prisma/client'
 import { interpretarValor } from '~~/shared/dinheiro'
 import { type Competidor, categoriasCompativeis, idadeNoAno } from '~~/shared/competicao'
+import { avisoDeCarencia, opcoesDeExame, textoDoAviso } from '~~/shared/exame'
+import { ROTULO_DO_SHOGO, type Shogo, ordemDoGrau } from '~~/shared/graduacao'
 import {
   type InscricaoDetalhada,
   type SituacaoNaCompeticao,
+  type SituacaoNoExame,
   type SubeventoDetalhado,
   diaDe,
   diasDoEvento,
@@ -156,6 +159,13 @@ export const camposDoSubevento = {
       _count: { select: { inscricoes: true } },
     },
   },
+  // Sem orderBy no grau: a ordem do enum no banco não é a da escala. Ordena-se
+  // em subeventoDetalhado, por ordemDoGrau.
+  graduacoes: { select: { id: true, grau: true, valor: true } },
+  shogos: { orderBy: { criadoEm: 'asc' }, select: { id: true, shogo: true, valor: true } },
+  // Só para contar inscritos por banca: a inscrição guarda o grau e o shogo,
+  // não uma chave para a linha da banca.
+  inscricoes: { select: { grauPretendido: true, shogoPretendido: true } },
 } satisfies Prisma.SubeventoSelect
 
 type SubeventoDoBanco = Prisma.SubeventoGetPayload<{ select: typeof camposDoSubevento }>
@@ -180,6 +190,20 @@ export function subeventoDetalhado(subevento: SubeventoDoBanco): SubeventoDetalh
       isenta: c.isenta,
       inscritos: c._count.inscricoes,
     })),
+    graduacoes: [...subevento.graduacoes]
+      .sort((a, b) => ordemDoGrau(a.grau) - ordemDoGrau(b.grau))
+      .map(g => ({
+        id: g.id,
+        grau: g.grau,
+        valor: Number(g.valor),
+        inscritos: subevento.inscricoes.filter(i => i.grauPretendido === g.grau).length,
+      })),
+    shogos: subevento.shogos.map(s => ({
+      id: s.id,
+      shogo: s.shogo,
+      valor: Number(s.valor),
+      inscritos: subevento.inscricoes.filter(i => i.shogoPretendido === s.shogo).length,
+    })),
   }
 }
 
@@ -188,17 +212,34 @@ export function numeroOuNulo(valor: Prisma.Decimal | null): number | null {
   return valor === null ? null : Number(valor)
 }
 
-/** O que do cadastro decide a categoria. */
+/** O que do cadastro decide a categoria e o exame. */
 export const camposDoCompetidor = {
   sexo: true,
   dataNascimento: true,
-  modalidades: { select: { modalidadeId: true, grau: true } },
+  modalidades: {
+    select: {
+      modalidadeId: true, grau: true, graduadoEm: true, desde: true,
+      shogos: { select: { shogo: true, obtidoEm: true } },
+    },
+  },
 } satisfies Prisma.PraticanteSelect
 
 export interface PraticanteCompetidor {
   sexo: 'MASCULINO' | 'FEMININO'
   dataNascimento: Date
-  modalidades: Array<{ modalidadeId: string, grau: Grau | null }>
+  modalidades: Array<{
+    modalidadeId: string
+    grau: Grau | null
+    graduadoEm: Date | null
+    desde: Date
+    shogos: Array<{ shogo: Shogo, obtidoEm: Date }>
+  }>
+}
+
+/** Grau e títulos na modalidade; quem não a tem no cadastro é mukyu sem título. */
+export function cadastroNaModalidade(praticante: PraticanteCompetidor, modalidadeId: string) {
+  const vinculo = praticante.modalidades.find(m => m.modalidadeId === modalidadeId)
+  return { grau: vinculo?.grau ?? null, shogos: vinculo?.shogos.map(s => s.shogo) ?? [] }
 }
 
 /**
@@ -235,6 +276,66 @@ export function situacaoNasCompeticoes(
   return situacao
 }
 
+/** Situação do praticante em cada exame do evento, para a tela. */
+export function situacaoNosExames(
+  praticante: PraticanteCompetidor,
+  subeventos: SubeventoDetalhado[],
+): Record<string, SituacaoNoExame> {
+  const situacao: Record<string, SituacaoNoExame> = {}
+
+  for (const subevento of subeventos.filter(s => s.tipo === 'EXAME')) {
+    const atual = cadastroNaModalidade(praticante, subevento.modalidade.id)
+    situacao[subevento.id] = {
+      grauAtual: atual.grau,
+      shogosAtuais: atual.shogos,
+      ...opcoesDeExame(atual, subevento.modalidade.kyuInicial, subevento),
+    }
+  }
+
+  return situacao
+}
+
+/**
+ * Aviso de carência de quem presta exame, para a lista de inscritos.
+ *
+ * A referência do dan e do Renshi é a data da última graduação; mukyu, que
+ * nunca se graduou, conta da data em que começou na modalidade. A do Kyoshi é a
+ * data do Renshi. Quem nem tem a modalidade no cadastro fica sem data para
+ * conferir.
+ */
+export function avisoDeCarenciaNoExame(
+  praticante: PraticanteCompetidor,
+  subevento: SubeventoDetalhado,
+  exame: { grau: Grau | null, shogo: Shogo | null },
+  carencias: Array<{ modalidadeId: string, grau: Grau | null, shogo: Shogo | null, mesesMinimos: number }>,
+): string | null {
+  const vinculo = praticante.modalidades.find(m => m.modalidadeId === subevento.modalidade.id)
+  const ultimaGraduacao = vinculo?.graduadoEm ?? (vinculo && vinculo.grau === null ? vinculo.desde : null)
+  const renshi = vinculo?.shogos.find(s => s.shogo === 'RENSHI')?.obtidoEm ?? null
+  const daModalidade = carencias.filter(c => c.modalidadeId === subevento.modalidade.id)
+
+  const conferir = (mesesMinimos: number | undefined, rotulo: string, referencia: Date | null) => {
+    const aviso = avisoDeCarencia({
+      referencia: referencia ? diaDe(referencia) : null,
+      mesesMinimos: mesesMinimos ?? null,
+      diaDoExame: subevento.dias[0] ?? diaDe(new Date()),
+    })
+    return aviso ? `${rotulo}: ${textoDoAviso(aviso)}` : null
+  }
+
+  const avisos = [
+    exame.grau
+      ? conferir(daModalidade.find(c => c.grau === exame.grau)?.mesesMinimos, 'dan', ultimaGraduacao)
+      : null,
+    exame.shogo
+      ? conferir(daModalidade.find(c => c.shogo === exame.shogo)?.mesesMinimos, ROTULO_DO_SHOGO[exame.shogo],
+          exame.shogo === 'KYOSHI' ? renshi : ultimaGraduacao)
+      : null,
+  ].filter(Boolean)
+
+  return avisos.length ? avisos.join('; ') : null
+}
+
 type InscricaoDoBanco = {
   alojamento: boolean
   subeventos: Array<{
@@ -242,6 +343,8 @@ type InscricaoDoBanco = {
     categoriaId: string | null
     individual: boolean | null
     equipe: boolean | null
+    grauPretendido: Grau | null
+    shogoPretendido: Shogo | null
   }>
   obentos: Array<{ dia: Date, quantidade: number }>
 }
@@ -249,15 +352,18 @@ type InscricaoDoBanco = {
 /** Campos da inscrição que `inscricaoComTotal` lê. */
 export const camposDaInscricao = {
   alojamento: true,
-  subeventos: { select: { subeventoId: true, categoriaId: true, individual: true, equipe: true } },
+  subeventos: {
+    select: { subeventoId: true, categoriaId: true, individual: true, equipe: true, grauPretendido: true,
+      shogoPretendido: true },
+  },
   obentos: { select: { dia: true, quantidade: true } },
 } satisfies Prisma.InscricaoEventoSelect
 
 /**
  * Inscrição gravada → o formato das telas, com o total estimado.
  *
- * O valor é sempre o do subevento. Em competição, categoria isenta zera a
- * participação de quem compete nela.
+ * No seminário e na competição, o valor é o do subevento — e categoria isenta
+ * zera a participação de quem compete nela. No exame, é o da graduação prestada.
  */
 export function inscricaoComTotal(
   inscricao: InscricaoDoBanco,
@@ -268,6 +374,7 @@ export function inscricaoComTotal(
   const obentos = Object.fromEntries(inscricao.obentos.map(o => [diaDe(o.dia), o.quantidade]))
 
   const competicoes: InscricaoDetalhada['competicoes'] = {}
+  const exames: InscricaoDetalhada['exames'] = {}
   const valores: Array<number | null> = []
 
   for (const escolhido of inscricao.subeventos) {
@@ -283,6 +390,12 @@ export function inscricaoComTotal(
       const isenta = subevento.categorias.find(c => c.id === escolhido.categoriaId)?.isenta
       valores.push(isenta ? 0 : subevento.valor)
     }
+    else if (escolhido.grauPretendido || escolhido.shogoPretendido) {
+      const { grauPretendido: grau, shogoPretendido: shogo } = escolhido
+      exames[subevento.id] = { grau, shogo }
+      if (grau) valores.push(subevento.graduacoes.find(g => g.grau === grau)?.valor ?? null)
+      if (shogo) valores.push(subevento.shogos.find(s => s.shogo === shogo)?.valor ?? null)
+    }
     else {
       valores.push(subevento.valor)
     }
@@ -293,6 +406,7 @@ export function inscricaoComTotal(
     alojamento: inscricao.alojamento,
     obentos,
     competicoes,
+    exames,
     total: totalDaInscricao({
       valoresDosSubeventos: valores,
       alojamento: inscricao.alojamento,

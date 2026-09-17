@@ -149,17 +149,27 @@ describe('montagem do evento', () => {
     expect(repetido.problemas[0]).toContain('já tem seminário de Kendo Eventos')
   })
 
-  it('distingue seminário gratuito de valor em branco', async () => {
-    const id = await criarEvento('Evento Com Seminário Gratuito')
-    expect((await seminario(id, { valor: '0' })).ok).toBe(true)
-    expect((await seminario(id, { modalidadeId: modalidades.iaido, valor: '' })).problemas[0])
-      .toContain('Use 0')
+  it('o valor é informado depois de criar, e sem ele o evento não é publicado', async () => {
+    const id = await criarEvento('Evento Com Valor Depois')
+    expect((await seminario(id, { valor: '' })).ok).toBe(true)
+
+    const publicar = await enviar('/api/eventos/publicar', { id }, { cookie: diretoria })
+    expect(publicar.problemas[0]).toContain('Informe o valor de participação')
+
+    const { dados } = await detalhe(id, diretoria)
+    const criado = dados.subeventos[0]!
+    expect(criado.valor).toBeNull()
+
+    // Na edição, vazio é recusado e zero é gratuito.
+    expect((await seminario(id, { id: criado.id, valor: '' })).problemas[0]).toContain('Use 0')
+    expect((await seminario(id, { id: criado.id, valor: '0' })).ok).toBe(true)
+    expect((await enviar('/api/eventos/publicar', { id }, { cookie: diretoria })).ok).toBe(true)
   })
 
-  it('ainda não aceita exame', async () => {
-    const id = await criarEvento('Evento Com Exame Antecipado')
-    const resposta = await seminario(id, { tipo: 'EXAME' })
-    expect(resposta.problemas).toHaveLength(1)
+  it('aceita exame sem valor próprio', async () => {
+    const id = await criarEvento('Evento Com Exame')
+    const resposta = await seminario(id, { tipo: 'EXAME', valor: '' })
+    expect(resposta.ok).toBe(true)
   })
 
   it('recusa prazo depois do primeiro dia do evento', async () => {

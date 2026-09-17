@@ -5,6 +5,9 @@ export default defineEventHandler(async (event) => {
 
   return prisma.modalidade.findMany({
     orderBy: { nome: 'asc' },
-    include: { _count: { select: { praticantes: true } } },
+    include: {
+      _count: { select: { praticantes: true } },
+      carencias: { select: { grau: true, shogo: true, mesesMinimos: true } },
+    },
   })
 })

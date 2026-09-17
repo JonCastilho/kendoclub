@@ -114,16 +114,21 @@ beforeAll(async () => {
 }, 180_000)
 
 describe('tabela de categorias', () => {
-  it('competição exige valor de participação', async () => {
+  it('competição sem valor de participação não é publicada', async () => {
     const criado = await enviar('/api/eventos', {
       titulo: 'Taikai Sem Valor', descricao: 'x', prazoInscricao: daqui(10),
     }, { cookie: diretoria })
-    const resposta = await enviar('/api/eventos/subeventos', {
-      eventoId: criado.destino.split('/').pop()!, tipo: 'COMPETICAO', modalidadeId: modalidade,
-      local: 'Ginásio', dia_1: daqui(20),
+    const eventoId = criado.destino.split('/').pop()!
+    const subevento = await enviar('/api/eventos/subeventos', {
+      eventoId, tipo: 'COMPETICAO', modalidadeId: modalidade, local: 'Ginásio', dia_1: daqui(20),
     }, { cookie: diretoria })
+    expect(subevento.ok).toBe(true)
 
-    expect(resposta.problemas[0]).toContain('valor de participação')
+    const { dados } = await ler<EventoDetalhado>(`/api/eventos/${eventoId}`, diretoria)
+    await categoria(dados.subeventos[0]!.id, { nome: 'Aberta' })
+
+    const publicar = await enviar('/api/eventos/publicar', { id: eventoId }, { cookie: diretoria })
+    expect(publicar.problemas).toEqual(['Informe o valor de participação em competição de Kendo Competição antes de publicar.'])
   })
 
   it('competição sem categoria não é publicada', async () => {

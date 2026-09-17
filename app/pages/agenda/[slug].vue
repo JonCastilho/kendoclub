@@ -4,10 +4,12 @@ import { formatarReais } from '~~/shared/dinheiro'
 import {
   type EventoDetalhado,
   ROTULO_DO_TIPO,
+  type SituacaoNoExame,
   type SubeventoDetalhado,
   formatarDia,
 } from '~~/shared/evento'
-import { rotuloDaGraduacao } from '~~/shared/graduacao'
+import type { Grau } from '@prisma/client'
+import { ROTULO_DO_SHOGO, type Shogo, rotuloComShogo, rotuloDaGraduacao } from '~~/shared/graduacao'
 
 const rota = useRoute()
 const slug = rota.params.slug as string
@@ -48,6 +50,28 @@ function categoriasQueServem(subevento: SubeventoDetalhado) {
 function precoNaCategoria(subevento: SubeventoDetalhado, isenta: boolean) {
   if (isenta) return 'isenta'
   return subevento.valor ? formatarReais(subevento.valor) : 'gratuita'
+}
+
+function exameDe(subevento: SubeventoDetalhado) {
+  return evento.value!.examinando[subevento.id]!
+}
+
+/** O que a pessoa poderia prestar mas não tem banca, em texto: "7º dan nem Renshi". */
+function semBanca(exame: SituacaoNoExame) {
+  return [
+    exame.grau && !exame.temBancaDeGrau ? rotuloDaGraduacao(exame.grau) : null,
+    exame.shogo && !exame.temBancaDeShogo ? ROTULO_DO_SHOGO[exame.shogo] : null,
+  ].filter(Boolean).join(' nem para ')
+}
+
+function precoDoGrau(subevento: SubeventoDetalhado, grau: Grau) {
+  const valor = subevento.graduacoes.find(g => g.grau === grau)?.valor ?? 0
+  return valor ? formatarReais(valor) : 'gratuito'
+}
+
+function precoDoShogo(subevento: SubeventoDetalhado, shogo: Shogo) {
+  const valor = subevento.shogos.find(s => s.shogo === shogo)?.valor ?? 0
+  return valor ? formatarReais(valor) : 'gratuito'
 }
 
 function periodo(inicio: string | null, fim: string | null) {
@@ -116,6 +140,15 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
           >
             {{ subevento.valor === 0 ? 'Gratuito' : formatarReais(subevento.valor) }}
           </div>
+          <p
+            v-if="subevento.tipo === 'EXAME'"
+            class="mt-1 text-sm"
+          >
+            {{ [
+              ...subevento.graduacoes.map(g => `${rotuloDaGraduacao(g.grau)} (${g.valor ? formatarReais(g.valor) : 'gratuito'})`),
+              ...subevento.shogos.map(x => `${ROTULO_DO_SHOGO[x.shogo]} (${x.valor ? formatarReais(x.valor) : 'gratuito'})`),
+            ].join(' · ') }}
+          </p>
           <ul
             v-if="subevento.tipo === 'COMPETICAO'"
             class="mt-1 text-sm"
@@ -297,11 +330,80 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
                     >
                     <span>
                       {{ ROTULO_DO_TIPO[subevento.tipo] }} de {{ subevento.modalidade.nome }}
-                      <span class="text-sm text-muted">
-                        — {{ subevento.valor ? formatarReais(subevento.valor) : 'gratuito' }}
+                      <span
+                        v-if="subevento.tipo !== 'EXAME'"
+                        class="text-sm text-muted"
+                      >
+                        — {{ subevento.valor === null ? 'valor a definir' : subevento.valor ? formatarReais(subevento.valor) : 'gratuito' }}
                       </span>
                     </span>
                   </label>
+
+                  <!-- Exame: graduação e shogo saem do cadastro. Só se pergunta
+                       algo a quem pode prestar os dois. -->
+                  <div
+                    v-if="subevento.tipo === 'EXAME' && evento.examinando[subevento.id]"
+                    class="ml-6 mt-2 flex flex-col gap-1 text-sm"
+                  >
+                    <p class="text-muted">
+                      Graduação atual:
+                      {{ rotuloComShogo(exameDe(subevento).grauAtual, exameDe(subevento).shogosAtuais) }}
+                    </p>
+
+                    <template v-if="exameDe(subevento).temBancaDeGrau && exameDe(subevento).temBancaDeShogo">
+                      <p>Você pode prestar os dois exames. Marque um, outro ou os dois:</p>
+                      <label class="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          :name="`exame_grau_${subevento.id}`"
+                          :checked="evento.inscricao ? Boolean(evento.inscricao.exames[subevento.id]?.grau) : true"
+                        >
+                        {{ rotuloDaGraduacao(exameDe(subevento).grau) }}
+                        — {{ precoDoGrau(subevento, exameDe(subevento).grau!) }}
+                      </label>
+                      <label class="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          :name="`exame_shogo_${subevento.id}`"
+                          :checked="Boolean(evento.inscricao?.exames[subevento.id]?.shogo)"
+                        >
+                        {{ ROTULO_DO_SHOGO[exameDe(subevento).shogo!] }}
+                        — {{ precoDoShogo(subevento, exameDe(subevento).shogo!) }}
+                      </label>
+                    </template>
+
+                    <template v-else-if="exameDe(subevento).temBancaDeGrau || exameDe(subevento).temBancaDeShogo">
+                      <p v-if="exameDe(subevento).temBancaDeGrau">
+                        Exame para <strong>{{ rotuloDaGraduacao(exameDe(subevento).grau) }}</strong>
+                        — {{ precoDoGrau(subevento, exameDe(subevento).grau!) }}
+                      </p>
+                      <p v-else>
+                        Exame de <strong>{{ ROTULO_DO_SHOGO[exameDe(subevento).shogo!] }}</strong>
+                        — {{ precoDoShogo(subevento, exameDe(subevento).shogo!) }}
+                      </p>
+                      <p
+                        v-if="semBanca(exameDe(subevento))"
+                        class="text-muted"
+                      >
+                        Não haverá banca para {{ semBanca(exameDe(subevento)) }} neste exame.
+                      </p>
+                    </template>
+
+                    <p
+                      v-else-if="!semBanca(exameDe(subevento))"
+                      class="text-warning"
+                    >
+                      Este cadastro já está na graduação e no título máximos.
+                    </p>
+
+                    <p
+                      v-else
+                      class="text-warning"
+                    >
+                      Este exame não terá banca para {{ semBanca(exameDe(subevento)) }}, que é o que
+                      este cadastro pode prestar.
+                    </p>
+                  </div>
 
                   <!-- Competição: a categoria sai do cadastro. Só se pergunta
                        algo quando mais de uma categoria serve. -->

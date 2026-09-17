@@ -8,6 +8,8 @@ import { estaFiliado } from '~~/shared/filiacao'
  * Mostra se cada pessoa está filiada — estar filiado não é condição para se
  * inscrever, mas a diretoria precisa saber — e se a categoria gravada ainda
  * atende ao cadastro, já que tabela e cadastro podem mudar depois da inscrição.
+ * No exame, traz o aviso de carência: a inscrição foi aceita, mas a diretoria
+ * precisa saber.
  */
 export default defineEventHandler(async (event): Promise<InscritosDoEvento> => {
   await exigirDiretoria(event)
@@ -45,6 +47,11 @@ export default defineEventHandler(async (event): Promise<InscritosDoEvento> => {
 
   const subeventos = evento.subeventos.map(subeventoDetalhado)
 
+  const carencias = await prisma.carenciaGraduacao.findMany({
+    where: { modalidadeId: { in: subeventos.map(s => s.modalidade.id) } },
+    select: { modalidadeId: true, grau: true, shogo: true, mesesMinimos: true },
+  })
+
   const inscritos = evento.inscricoes.map((inscricao) => {
     const detalhada = inscricaoComTotal(inscricao, evento, subeventos)
 
@@ -56,12 +63,20 @@ export default defineEventHandler(async (event): Promise<InscritosDoEvento> => {
       })
       .map(([subeventoId]) => subeventoId)
 
+    const avisosDeCarencia: Record<string, string> = {}
+    for (const [subeventoId, exame] of Object.entries(detalhada.exames)) {
+      const subevento = subeventos.find(s => s.id === subeventoId)!
+      const aviso = avisoDeCarenciaNoExame(inscricao.praticante, subevento, exame, carencias)
+      if (aviso) avisosDeCarencia[subeventoId] = aviso
+    }
+
     return {
       praticanteId: inscricao.praticante.id,
       nome: inscricao.praticante.nomeCompleto,
       filiado: estaFiliado(inscricao.praticante.filiacoes),
       ...detalhada,
       foraDaCategoria,
+      avisosDeCarencia,
     }
   })
 

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { formatarReais } from '~~/shared/dinheiro'
+import { ROTULO_DO_SHOGO, rotuloDaGraduacao } from '~~/shared/graduacao'
 import {
+  type ExamePrestado,
   type InscritosDoEvento,
   type ParticipacaoNaCompeticao,
   ROTULO_DO_TIPO,
@@ -17,6 +19,15 @@ useHead({ title: () => `Inscritos em ${data.value?.evento.titulo ?? ''} - KendoC
 
 function nomeDaCategoria(subevento: SubeventoDetalhado, categoriaId: string | undefined) {
   return subevento.categorias.find(c => c.id === categoriaId)?.nome ?? 'sem categoria'
+}
+
+/** "7º dan e Renshi", "Renshi", "1º kyu". */
+function descreverExame(exame: ExamePrestado | undefined) {
+  if (!exame) return 'sim'
+  return [
+    exame.grau ? rotuloDaGraduacao(exame.grau) : null,
+    exame.shogo ? ROTULO_DO_SHOGO[exame.shogo] : null,
+  ].filter(Boolean).join(' e ')
 }
 
 function modo(participacao: ParticipacaoNaCompeticao | undefined) {
@@ -187,6 +198,17 @@ const naoFiliados = computed(() => (data.value?.inscritos ?? []).filter(i => !i.
                   class="ml-1"
                 >
                   não cabe mais nesta categoria
+                </UBadge>
+              </template>
+              <template v-else-if="subevento.tipo === 'EXAME'">
+                {{ descreverExame(inscrito.exames[subevento.id]) }}
+                <UBadge
+                  v-if="inscrito.avisosDeCarencia[subevento.id]"
+                  color="warning"
+                  variant="subtle"
+                  class="ml-1"
+                >
+                  {{ inscrito.avisosDeCarencia[subevento.id] }}
                 </UBadge>
               </template>
               <template v-else>

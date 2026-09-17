@@ -15,8 +15,31 @@ export const KYU_MAXIMO = 10
 export const DAN_MAXIMO = 8
 
 /**
+ * Título (shogo). Fica fora da escala: tem data própria, e a carência do Kyoshi
+ * conta a partir do Renshi, não do dan.
+ */
+export type Shogo = 'RENSHI' | 'KYOSHI'
+
+export const ROTULO_DO_SHOGO: Record<Shogo, string> = { RENSHI: 'Renshi', KYOSHI: 'Kyoshi' }
+
+/** O título mais alto: quem tem Kyoshi também guarda a linha do Renshi. */
+export function shogoMaisAlto(shogos: Shogo[]): Shogo | null {
+  if (shogos.includes('KYOSHI')) return 'KYOSHI'
+  return shogos.includes('RENSHI') ? 'RENSHI' : null
+}
+
+/** "6º dan Renshi", ou só a graduação para quem não tem título. */
+export function rotuloComShogo(grau: Grau | null | undefined, shogos: Shogo[]): string {
+  const shogo = shogoMaisAlto(shogos)
+  return shogo ? `${rotuloDaGraduacao(grau)} ${ROTULO_DO_SHOGO[shogo]}` : rotuloDaGraduacao(grau)
+}
+
+/**
  * Ordem numérica: kyu é negativo e dan é positivo, então comparar dois graus é
  * comparar dois números — 6º kyu (-6) < 1º kyu (-1) < 1º dan (1).
+ *
+ * A ordem vem daqui, e nunca do enum no banco: 10º e 9º kyu foram acrescentados
+ * depois e estão no fim da lista do Postgres.
  */
 export function ordemDoGrau(grau: Grau): number {
   const [tipo, numero] = grau.split('_') as ['KYU' | 'DAN', string]

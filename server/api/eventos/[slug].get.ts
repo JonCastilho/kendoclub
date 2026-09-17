@@ -102,5 +102,6 @@ export default defineEventHandler(async (event): Promise<EventoDetalhado> => {
     podeInscrever: Boolean(praticante) && (leitor.ehDiretoria || prazoAberto),
     inscricao: inscricao ? inscricaoComTotal(inscricao, evento, subeventos) : null,
     competidor: praticante ? situacaoNasCompeticoes(praticante, subeventos) : {},
+    examinando: praticante ? situacaoNosExames(praticante, subeventos) : {},
   }
 })

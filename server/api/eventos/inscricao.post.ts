@@ -1,5 +1,6 @@
 import { categoriasCompativeis, decidirCompeticao } from '~~/shared/competicao'
 import {
+  type ExamePrestado,
   ROTULO_DO_TIPO,
   type ParticipacaoNaCompeticao,
   diaDe,
@@ -9,6 +10,7 @@ import {
   inscricoesAbertas,
   normalizarInscricao,
 } from '~~/shared/evento'
+import { decidirExame, opcoesDeExame } from '~~/shared/exame'
 import { podeVer } from '~~/shared/publicacao'
 
 /**
@@ -113,6 +115,28 @@ export default defineEventHandler(async (event) => {
     if (decisao.categoriaId) competicoes[subevento.id] = { ...escolha, categoriaId: decisao.categoriaId }
   }
 
+  // No exame, graduação e shogo saem do cadastro. Só se pergunta algo a quem
+  // pode prestar os dois (`exame_grau_<id>`, `exame_shogo_<id>`). Carência
+  // não entra aqui — avisa na lista, não impede.
+  const exames: Record<string, ExamePrestado> = {}
+
+  for (const subevento of subeventos) {
+    if (subevento.tipo !== 'EXAME' || !inscricao.subeventoIds.includes(subevento.id)) continue
+
+    const atual = cadastroNaModalidade(praticante, subevento.modalidade.id)
+    const decisao = decidirExame(
+      opcoesDeExame(atual, subevento.modalidade.kyuInicial, subevento),
+      {
+        grau: marcado(corpo[`exame_grau_${subevento.id}`]),
+        shogo: marcado(corpo[`exame_shogo_${subevento.id}`]),
+      },
+      `exame de ${subevento.modalidade.nome}`,
+    )
+
+    problemas.push(...decisao.problemas)
+    if (decisao.grau || decisao.shogo) exames[subevento.id] = { grau: decisao.grau, shogo: decisao.shogo }
+  }
+
   if (problemas.length > 0) return responderErro(event, problemas, voltar)
 
   const chave = { eventoId_praticanteId: { eventoId: evento.id, praticanteId } }
@@ -147,6 +171,8 @@ export default defineEventHandler(async (event) => {
         categoriaId: participacao?.categoriaId ?? null,
         individual: participacao?.individual ?? null,
         equipe: participacao?.equipe ?? null,
+        grauPretendido: exames[subeventoId]?.grau ?? null,
+        shogoPretendido: exames[subeventoId]?.shogo ?? null,
       }
       await tx.inscricaoSubevento.upsert({
         where: { inscricaoEventoId_subeventoId: { inscricaoEventoId: gravada.id, subeventoId } },

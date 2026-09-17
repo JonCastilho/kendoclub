@@ -1,5 +1,6 @@
 import type { Grau } from '@prisma/client'
-import { grauPertenceAModalidade } from '~~/shared/graduacao'
+import { DAN_MINIMO_PARA_RENSHI } from '~~/shared/exame'
+import { grauPertenceAModalidade, ordemDoGrau } from '~~/shared/graduacao'
 
 /**
  * Define a graduação atual do praticante numa modalidade.
@@ -21,11 +22,17 @@ export default defineEventHandler(async (event) => {
 
   const vinculo = await prisma.praticanteModalidade.findFirst({
     where: { praticanteId: id, modalidadeId },
-    include: { modalidade: true },
+    include: { modalidade: true, _count: { select: { shogos: true } } },
   })
 
   if (!vinculo) {
     return responderErro(event, ['Este praticante não faz essa modalidade.'], voltar)
+  }
+
+  // Título pede 5º dan: baixar a graduação deixaria o Renshi sem base.
+  if (vinculo._count.shogos > 0
+    && (!grauInformado || ordemDoGrau(grauInformado as Grau) < ordemDoGrau(DAN_MINIMO_PARA_RENSHI))) {
+    return responderErro(event, ['Quem tem título precisa de 5º dan ou acima. Remova o título antes.'], voltar)
   }
 
   // Campo vazio devolve o praticante a mukyu, que é como se corrige um registro

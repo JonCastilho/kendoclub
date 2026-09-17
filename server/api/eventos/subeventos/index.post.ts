@@ -45,7 +45,7 @@ export default defineEventHandler(async (event) => {
     valor: valorOpcional(corpo.valor),
   }
 
-  const problemas = problemasDoSubevento(dados)
+  const problemas = problemasDoSubevento(dados, { existente: Boolean(id) })
   if (problemas.length > 0) return responderErro(event, problemas, voltar)
 
   const modalidade = await prisma.modalidade.findUnique({

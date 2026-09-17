@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { rotuloDaFaixaDeGrau, rotuloDaIdade } from '~~/shared/competicao'
 import { formatarReais } from '~~/shared/dinheiro'
+import { GRAUS_DE_EXAME, SHOGOS } from '~~/shared/exame'
+import { ROTULO_DO_SHOGO, grausDaModalidade, rotuloDoGrau } from '~~/shared/graduacao'
 import {
   type EventoDetalhado,
+  type SubeventoDetalhado,
   ROTULO_DO_TIPO,
   TIPOS_DISPONIVEIS,
   formatarDia,
@@ -30,6 +33,17 @@ function valorNoCampo(valor: number | null) {
  */
 function vagasDeDia(dias: string[]) {
   return [...dias, ...Array(Math.max(4 - dias.length, 1)).fill('')] as string[]
+}
+
+/** Graduações de exame da modalidade que ainda não têm banca neste exame. */
+function grausParaOferecer(subevento: SubeventoDetalhado) {
+  const daModalidade = grausDaModalidade(subevento.modalidade.kyuInicial)
+  return GRAUS_DE_EXAME.filter(grau =>
+    daModalidade.includes(grau) && !subevento.graduacoes.some(g => g.grau === grau))
+}
+
+function shogosParaOferecer(subevento: SubeventoDetalhado) {
+  return SHOGOS.filter(shogo => !subevento.shogos.some(s => s.shogo === shogo))
 }
 
 const temEncomendas = computed(() =>
@@ -265,7 +279,7 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
       </h2>
       <p class="mt-1 text-sm text-muted">
         Cada subevento é de uma modalidade. O mesmo tipo pode se repetir em
-        modalidades diferentes. Exame chega na próxima parte.
+        modalidades diferentes. Depois de criado, o tipo não muda.
       </p>
 
       <div
@@ -354,6 +368,251 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
               :kyu-inicial="subevento.modalidade.kyuInicial"
             />
           </div>
+        </div>
+
+        <div
+          v-if="subevento.tipo === 'EXAME'"
+          class="mt-5 border-t border-default pt-4"
+        >
+          <h4 class="font-medium">
+            Graduações com banca
+          </h4>
+          <p class="text-xs text-muted">
+            Quem se inscreve presta a graduação seguinte à do cadastro — aspirante
+            vai direto ao 1º kyu, e quem tem título o mantém (5º dan Renshi presta
+            na banca de 6º dan). Sem banca para ela, a inscrição é recusada. Sem
+            nenhuma banca, o exame não pode ser publicado.
+          </p>
+
+          <div
+            v-for="graduacao in subevento.graduacoes"
+            :key="graduacao.id"
+            class="mt-2 flex flex-wrap items-center gap-3 rounded-md bg-elevated p-2 text-sm"
+          >
+            <form
+              method="post"
+              action="/api/eventos/graduacoes"
+              class="flex flex-wrap items-center gap-2"
+            >
+              <input
+                type="hidden"
+                name="subeventoId"
+                :value="subevento.id"
+              >
+              <input
+                type="hidden"
+                name="id"
+                :value="graduacao.id"
+              >
+              <span class="w-16 font-medium">{{ rotuloDoGrau(graduacao.grau) }}</span>
+              <input
+                name="valor"
+                inputmode="decimal"
+                required
+                :aria-label="`Valor do exame de ${rotuloDoGrau(graduacao.grau)}`"
+                :value="valorNoCampo(graduacao.valor)"
+                class="w-24 rounded-md border border-default bg-default px-2 py-1"
+              >
+              <button
+                type="submit"
+                class="rounded-md border border-default px-2 py-1"
+              >
+                Salvar
+              </button>
+              <span class="text-muted">{{ graduacao.inscritos }} inscrito(s)</span>
+            </form>
+
+            <form
+              method="post"
+              action="/api/eventos/graduacoes/remover"
+              class="flex items-center gap-2 text-xs"
+            >
+              <input
+                type="hidden"
+                name="id"
+                :value="graduacao.id"
+              >
+              <label
+                v-if="graduacao.inscritos > 0"
+                class="flex items-center gap-1"
+              >
+                <input
+                  type="checkbox"
+                  name="confirmar"
+                >
+                confirmo tirar os inscritos do exame
+              </label>
+              <button
+                type="submit"
+                class="underline text-error"
+              >
+                Remover
+              </button>
+            </form>
+          </div>
+
+          <form
+            v-if="grausParaOferecer(subevento).length"
+            method="post"
+            action="/api/eventos/graduacoes"
+            class="mt-3 flex flex-wrap items-end gap-2 rounded-md border border-dashed border-default p-2 text-sm"
+          >
+            <input
+              type="hidden"
+              name="subeventoId"
+              :value="subevento.id"
+            >
+            <label>
+              <span class="block text-xs text-muted">Graduação</span>
+              <select
+                name="grau"
+                class="rounded-md border border-default bg-default px-2 py-1"
+              >
+                <option
+                  v-for="grau in grausParaOferecer(subevento)"
+                  :key="grau"
+                  :value="grau"
+                >
+                  {{ rotuloDoGrau(grau) }}
+                </option>
+              </select>
+            </label>
+            <label>
+              <span class="block text-xs text-muted">Valor</span>
+              <input
+                name="valor"
+                inputmode="decimal"
+                placeholder="0,00"
+                required
+                class="w-24 rounded-md border border-default bg-default px-2 py-1"
+              >
+            </label>
+            <button
+              type="submit"
+              class="rounded-md border border-default px-2 py-1"
+            >
+              Oferecer
+            </button>
+          </form>
+
+          <h4 class="mt-5 font-medium">
+            Shogo
+          </h4>
+          <p class="text-xs text-muted">
+            Renshi: 5º dan ou acima, ainda sem título. Kyoshi: 7º ou 8º dan Renshi.
+            Quem pode prestar dan e shogo escolhe um, outro ou os dois.
+          </p>
+
+          <div
+            v-for="oferecido in subevento.shogos"
+            :key="oferecido.id"
+            class="mt-2 flex flex-wrap items-center gap-3 rounded-md bg-elevated p-2 text-sm"
+          >
+            <form
+              method="post"
+              action="/api/eventos/shogos"
+              class="flex flex-wrap items-center gap-2"
+            >
+              <input
+                type="hidden"
+                name="subeventoId"
+                :value="subevento.id"
+              >
+              <input
+                type="hidden"
+                name="id"
+                :value="oferecido.id"
+              >
+              <span class="w-16 font-medium">{{ ROTULO_DO_SHOGO[oferecido.shogo] }}</span>
+              <input
+                name="valor"
+                inputmode="decimal"
+                required
+                :aria-label="`Valor do exame de ${ROTULO_DO_SHOGO[oferecido.shogo]}`"
+                :value="valorNoCampo(oferecido.valor)"
+                class="w-24 rounded-md border border-default bg-default px-2 py-1"
+              >
+              <button
+                type="submit"
+                class="rounded-md border border-default px-2 py-1"
+              >
+                Salvar
+              </button>
+              <span class="text-muted">{{ oferecido.inscritos }} inscrito(s)</span>
+            </form>
+
+            <form
+              method="post"
+              action="/api/eventos/shogos/remover"
+              class="flex items-center gap-2 text-xs"
+            >
+              <input
+                type="hidden"
+                name="id"
+                :value="oferecido.id"
+              >
+              <label
+                v-if="oferecido.inscritos > 0"
+                class="flex items-center gap-1"
+              >
+                <input
+                  type="checkbox"
+                  name="confirmar"
+                >
+                confirmo tirar este exame dos inscritos
+              </label>
+              <button
+                type="submit"
+                class="underline text-error"
+              >
+                Remover
+              </button>
+            </form>
+          </div>
+
+          <form
+            v-if="shogosParaOferecer(subevento).length"
+            method="post"
+            action="/api/eventos/shogos"
+            class="mt-3 flex flex-wrap items-end gap-2 rounded-md border border-dashed border-default p-2 text-sm"
+          >
+            <input
+              type="hidden"
+              name="subeventoId"
+              :value="subevento.id"
+            >
+            <label>
+              <span class="block text-xs text-muted">Shogo</span>
+              <select
+                name="shogo"
+                class="rounded-md border border-default bg-default px-2 py-1"
+              >
+                <option
+                  v-for="shogo in shogosParaOferecer(subevento)"
+                  :key="shogo"
+                  :value="shogo"
+                >
+                  {{ ROTULO_DO_SHOGO[shogo] }}
+                </option>
+              </select>
+            </label>
+            <label>
+              <span class="block text-xs text-muted">Valor</span>
+              <input
+                name="valor"
+                inputmode="decimal"
+                placeholder="0,00"
+                required
+                class="w-24 rounded-md border border-default bg-default px-2 py-1"
+              >
+            </label>
+            <button
+              type="submit"
+              class="rounded-md border border-default px-2 py-1"
+            >
+              Oferecer
+            </button>
+          </form>
         </div>
 
         <form

@@ -132,7 +132,7 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
     </fieldset>
 
     <div
-      v-if="!subevento || subevento.tipo !== 'EXAME'"
+      v-if="subevento && subevento.tipo !== 'EXAME'"
       class="max-w-xs"
     >
       <label
@@ -149,7 +149,8 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
       >
       <p class="mt-1 text-xs text-muted">
         Use 0 se for gratuito. Na competição, o valor cobre individual e equipe, e
-        cada categoria pode ser marcada como isenta.
+        cada categoria pode ser marcada como isenta. Sem valor, o evento não é
+        publicado.
       </p>
     </div>
 
@@ -172,6 +173,13 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
       >
         {{ subevento ? 'Salvar subevento' : 'Adicionar subevento' }}
       </button>
+      <p
+        v-if="!subevento"
+        class="mt-1 text-xs text-muted"
+      >
+        O valor de participação — ou, no exame, as bancas — se informa depois de
+        adicionar.
+      </p>
     </div>
   </form>
 </template>

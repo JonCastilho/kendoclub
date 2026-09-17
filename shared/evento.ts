@@ -1,5 +1,6 @@
 import type { Grau } from '@prisma/client'
 import type { Categoria } from './competicao'
+import type { Shogo } from './graduacao'
 import { gerarSlug } from './publicacao'
 
 /**
@@ -12,8 +13,7 @@ import { gerarSlug } from './publicacao'
 
 export type TipoSubevento = 'SEMINARIO' | 'COMPETICAO' | 'EXAME'
 
-/** Tipos que já podem ser criados. Exame depende da tabela de graduações (7.3). */
-export const TIPOS_DISPONIVEIS: TipoSubevento[] = ['SEMINARIO', 'COMPETICAO']
+export const TIPOS_DISPONIVEIS: TipoSubevento[] = ['SEMINARIO', 'COMPETICAO', 'EXAME']
 
 export const ROTULO_DO_TIPO: Record<TipoSubevento, string> = {
   SEMINARIO: 'Seminário',
@@ -136,7 +136,11 @@ export interface DadosDoSubevento {
   valor: number | null
 }
 
-export function problemasDoSubevento(dados: DadosDoSubevento): string[] {
+/**
+ * `existente` separa criar de editar: o valor de participação só é pedido
+ * depois que o subevento existe, na tela de edição. Publicar é que exige.
+ */
+export function problemasDoSubevento(dados: DadosDoSubevento, opcoes: { existente: boolean }): string[] {
   const problemas: string[] = []
 
   if (!TIPOS_DISPONIVEIS.includes(dados.tipo as TipoSubevento)) {
@@ -150,7 +154,7 @@ export function problemasDoSubevento(dados: DadosDoSubevento): string[] {
 
   // Seminário e competição têm valor de participação; zero é gratuito. Na
   // competição, a isenção é por categoria.
-  if (['SEMINARIO', 'COMPETICAO'].includes(dados.tipo) && dados.valor === null) {
+  if (opcoes.existente && ['SEMINARIO', 'COMPETICAO'].includes(dados.tipo) && dados.valor === null) {
     problemas.push('Informe o valor de participação. Use 0 se for gratuito.')
   }
 
@@ -160,11 +164,21 @@ export function problemasDoSubevento(dados: DadosDoSubevento): string[] {
 /**
  * O que impede a publicação.
  *
- * Evento sem subevento com data não tem o que mostrar na agenda, e competição
- * sem categoria não aceitaria inscrição de ninguém.
+ * Evento sem subevento com data não tem o que mostrar na agenda; competição
+ * sem categoria e exame sem banca não aceitariam inscrição de ninguém; e
+ * seminário ou competição sem valor não teriam o que cobrar.
  */
 export function problemasParaPublicar(
-  subeventos: Array<{ dias: string[], tipo?: TipoSubevento, categorias?: number, nome?: string }>,
+  subeventos: Array<{
+    dias: string[]
+    tipo?: TipoSubevento
+    categorias?: number
+    graduacoes?: number
+    shogos?: number
+    /** Nulo é "ainda não informado"; ausente é "não conferir". */
+    valor?: number | null
+    nome?: string
+  }>,
 ): string[] {
   const problemas: string[] = []
 
@@ -175,6 +189,12 @@ export function problemasParaPublicar(
   for (const subevento of subeventos) {
     if (subevento.tipo === 'COMPETICAO' && !subevento.categorias) {
       problemas.push(`Cadastre ao menos uma categoria em ${subevento.nome ?? 'competição'} antes de publicar.`)
+    }
+    if (subevento.tipo === 'EXAME' && !subevento.graduacoes && !subevento.shogos) {
+      problemas.push(`Ofereça ao menos uma graduação em ${subevento.nome ?? 'exame'} antes de publicar.`)
+    }
+    if (subevento.tipo !== 'EXAME' && subevento.valor === null) {
+      problemas.push(`Informe o valor de participação em ${subevento.nome ?? 'subevento'} antes de publicar.`)
     }
   }
 
@@ -314,6 +334,41 @@ export interface SubeventoDetalhado {
   inscritos: number
   /** Só em competição. */
   categorias: CategoriaDetalhada[]
+  /** Só em exame: graduações e shogos com banca. */
+  graduacoes: GraduacaoOferecida[]
+  shogos: ShogoOferecido[]
+}
+
+export interface ShogoOferecido {
+  id: string
+  shogo: Shogo
+  valor: number
+  inscritos: number
+}
+
+/** Um exame prestado: a graduação, o shogo, ou os dois. */
+export interface ExamePrestado {
+  grau: Grau | null
+  shogo: Shogo | null
+}
+
+export interface GraduacaoOferecida {
+  id: string
+  grau: Grau
+  valor: number
+  inscritos: number
+}
+
+/** O que o cadastro diz de quem está sendo inscrito, em cada exame. */
+export interface SituacaoNoExame {
+  grauAtual: Grau | null
+  shogosAtuais: Shogo[]
+  /** Graduação seguinte; nulo no 8º dan. */
+  grau: Grau | null
+  temBancaDeGrau: boolean
+  /** Shogo liberado pelo cadastro; nulo se nenhum. */
+  shogo: Shogo | null
+  temBancaDeShogo: boolean
 }
 
 export interface ParticipacaoNaCompeticao {
@@ -325,6 +380,8 @@ export interface ParticipacaoNaCompeticao {
 export type InscricaoDetalhada = InscricaoNormalizada & {
   /** Subevento de competição → como participa. */
   competicoes: Record<string, ParticipacaoNaCompeticao>
+  /** Subevento de exame → graduação e shogo prestados. */
+  exames: Record<string, ExamePrestado>
   total: number
 }
 
@@ -366,6 +423,8 @@ export interface EventoDetalhado {
   inscricao: InscricaoDetalhada | null
   /** Subevento de competição → idade, grau e categorias que servem. */
   competidor: Record<string, SituacaoNaCompeticao>
+  /** Subevento de exame → graduação atual e o que pode prestar. */
+  examinando: Record<string, SituacaoNoExame>
 }
 
 export interface InscritoNoEvento {
@@ -376,11 +435,14 @@ export interface InscritoNoEvento {
   alojamento: boolean
   obentos: Record<string, number>
   competicoes: Record<string, ParticipacaoNaCompeticao>
+  exames: Record<string, ExamePrestado>
   /**
    * Competições em que a categoria gravada já não atende ao cadastro — a
    * tabela ou o cadastro mudou depois da inscrição.
    */
   foraDaCategoria: string[]
+  /** Subevento de exame → aviso de carência, se houver. */
+  avisosDeCarencia: Record<string, string>
   total: number
 }
 

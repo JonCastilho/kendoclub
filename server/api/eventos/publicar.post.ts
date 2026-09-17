@@ -18,7 +18,8 @@ export default defineEventHandler(async (event) => {
           dias: true,
           tipo: true,
           modalidade: { select: { nome: true } },
-          _count: { select: { categorias: true } },
+          valor: true,
+          _count: { select: { categorias: true, graduacoes: true, shogos: true } },
         },
       },
     },
@@ -32,6 +33,9 @@ export default defineEventHandler(async (event) => {
       dias: diasComoTexto(s.dias),
       tipo: s.tipo,
       categorias: s._count.categorias,
+      graduacoes: s._count.graduacoes,
+      shogos: s._count.shogos,
+      valor: s.valor === null ? null : Number(s.valor),
       nome: `${ROTULO_DO_TIPO[s.tipo].toLowerCase()} de ${s.modalidade.nome}`,
     })))
     if (problemas.length > 0) return responderErro(event, problemas, voltar)
