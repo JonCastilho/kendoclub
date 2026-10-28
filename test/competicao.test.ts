@@ -7,6 +7,7 @@ import {
   decidirCompeticao,
   idadeNoAno,
   lerIdade,
+  participacaoIsenta,
   problemasDaCategoria,
   rotuloDaFaixaDeGrau,
   rotuloDaIdade,
@@ -14,7 +15,7 @@ import {
 
 function categoria(parcial: Partial<Categoria>): Categoria {
   return {
-    id: 'c', nome: 'Categoria', sexo: 'MISTO',
+    id: 'c', nome: 'Categoria', tipo: 'INDIVIDUAL', sexo: 'MISTO',
     idadeMinima: null, idadeMaxima: null, grauMinimo: null, grauMaximo: null,
     isenta: false, ...parcial,
   }
@@ -81,47 +82,71 @@ describe('categoriasCompativeis', () => {
 })
 
 describe('decidirCompeticao', () => {
-  const participa = { categoriaId: '', individual: true, equipe: false }
+  const compativeis = [
+    { id: 'i1', tipo: 'INDIVIDUAL' as const },
+    { id: 'i2', tipo: 'INDIVIDUAL' as const },
+    { id: 'e1', tipo: 'EQUIPE' as const },
+  ]
+  const nenhuma = { individual: '', equipe: '' }
 
-  it('entra sozinha a única categoria compatível', () => {
-    expect(decidirCompeticao(participa, [{ id: 'a' }], 'Competição')).toEqual({
-      categoriaId: 'a', problemas: [],
+  it('aceita uma categoria de cada disputa', () => {
+    expect(decidirCompeticao({ individual: 'i2', equipe: 'e1' }, compativeis, 'Competição')).toEqual({
+      categoriaIndividualId: 'i2', categoriaEquipeId: 'e1', problemas: [],
     })
   })
 
-  it('pede escolha quando há mais de uma', () => {
-    const { categoriaId, problemas } = decidirCompeticao(participa, [{ id: 'a' }, { id: 'b' }], 'Competição')
-    expect(categoriaId).toBeNull()
-    expect(problemas[0]).toContain('escolha a categoria')
+  it('aceita competir só numa das disputas', () => {
+    expect(decidirCompeticao({ ...nenhuma, individual: 'i1' }, compativeis, 'C')).toEqual({
+      categoriaIndividualId: 'i1', categoriaEquipeId: null, problemas: [],
+    })
+    expect(decidirCompeticao({ ...nenhuma, equipe: 'e1' }, compativeis, 'C')).toEqual({
+      categoriaIndividualId: null, categoriaEquipeId: 'e1', problemas: [],
+    })
   })
 
-  it('aceita a escolha entre as compatíveis', () => {
-    expect(decidirCompeticao({ ...participa, categoriaId: 'b' }, [{ id: 'a' }, { id: 'b' }], 'C'))
-      .toEqual({ categoriaId: 'b', problemas: [] })
+  it('exige ao menos uma disputa', () => {
+    const { problemas } = decidirCompeticao(nenhuma, compativeis, 'C')
+    expect(problemas[0]).toContain('individual, por equipes')
   })
 
   it('recusa categoria que não serve, mesmo existindo no evento', () => {
-    const { problemas } = decidirCompeticao(
-      { ...participa, categoriaId: 'outra' }, [{ id: 'a' }, { id: 'b' }], 'C')
+    const { categoriaIndividualId, problemas } = decidirCompeticao({ ...nenhuma, individual: 'outra' }, compativeis, 'C')
+    expect(categoriaIndividualId).toBeNull()
     expect(problemas[0]).toContain('não atende')
   })
 
-  it('recusa quando nenhuma serve, apontando a tabela', () => {
-    const { categoriaId, problemas } = decidirCompeticao(participa, [], 'Competição de Kendo')
-    expect(categoriaId).toBeNull()
-    expect(problemas[0]).toContain('tabela de categorias')
+  it('recusa categoria de equipe escolhida na disputa individual, e o inverso', () => {
+    expect(decidirCompeticao({ ...nenhuma, individual: 'e1' }, compativeis, 'C').problemas[0])
+      .toContain('não atende')
+    expect(decidirCompeticao({ ...nenhuma, equipe: 'i1' }, compativeis, 'C').problemas[0])
+      .toContain('não atende')
   })
 
-  it('exige individual, equipe ou os dois', () => {
-    const { problemas } = decidirCompeticao(
-      { categoriaId: '', individual: false, equipe: false }, [{ id: 'a' }], 'C')
-    expect(problemas[0]).toContain('individual, equipe')
+  it('quando nenhuma categoria da disputa serve, aponta a tabela', () => {
+    const soIndividuais = compativeis.filter(c => c.tipo === 'INDIVIDUAL')
+    const { categoriaEquipeId, problemas } = decidirCompeticao({ ...nenhuma, equipe: 'e1' }, soIndividuais, 'Competição de Kendo')
+    expect(categoriaEquipeId).toBeNull()
+    expect(problemas[0]).toContain('tabela de categorias')
+  })
+})
+
+describe('participacaoIsenta', () => {
+  it('só é gratuita se todas as categorias escolhidas são isentas', () => {
+    expect(participacaoIsenta([{ isenta: true }])).toBe(true)
+    expect(participacaoIsenta([{ isenta: true }, { isenta: true }])).toBe(true)
+    expect(participacaoIsenta([{ isenta: true }, { isenta: false }])).toBe(false)
+    expect(participacaoIsenta([{ isenta: false }])).toBe(false)
+  })
+
+  it('sem categoria escolhida ou não encontrada, paga', () => {
+    expect(participacaoIsenta([])).toBe(false)
+    expect(participacaoIsenta([{ isenta: true }, undefined])).toBe(false)
   })
 })
 
 describe('problemasDaCategoria', () => {
   const valida = {
-    nome: 'Adulto masculino', sexo: 'MASCULINO', idadeMinima: 18, idadeMaxima: null,
+    nome: 'Adulto masculino', tipo: 'INDIVIDUAL', sexo: 'MASCULINO', idadeMinima: 18, idadeMaxima: null,
     grauMinimo: null, grauMaximo: null,
   }
 
@@ -129,8 +154,13 @@ describe('problemasDaCategoria', () => {
     expect(problemasDaCategoria(valida, 6)).toEqual([])
   })
 
-  it('exige nome e sexo', () => {
-    expect(problemasDaCategoria({ ...valida, nome: '', sexo: '' }, 6)).toHaveLength(2)
+  it('exige nome, tipo e sexo', () => {
+    expect(problemasDaCategoria({ ...valida, nome: '', tipo: '', sexo: '' }, 6)).toHaveLength(3)
+  })
+
+  it('aceita os dois tipos e recusa o resto', () => {
+    expect(problemasDaCategoria({ ...valida, tipo: 'EQUIPE' }, 6)).toEqual([])
+    expect(problemasDaCategoria({ ...valida, tipo: 'TRIO' }, 6)[0]).toContain('individual ou por equipes')
   })
 
   it('recusa faixa de idade invertida ou inválida', () => {

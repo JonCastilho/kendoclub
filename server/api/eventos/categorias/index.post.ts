@@ -1,8 +1,12 @@
 import type { Grau } from '@prisma/client'
-import { type SexoCategoria, lerIdade, problemasDaCategoria } from '~~/shared/competicao'
+import { ROTULO_DO_TIPO_DE_CATEGORIA, type SexoCategoria, type TipoCategoria, lerIdade, problemasDaCategoria }
+  from '~~/shared/competicao'
 
 /**
  * Cria ou atualiza uma categoria da competição.
+ *
+ * O tipo (individual ou por equipes) é escolhido na criação e não muda depois:
+ * quem se inscreveu nela se inscreveu naquela disputa.
  *
  * Editar categoria com inscritos é permitido: a inscrição guarda a categoria
  * escolhida, e a lista de inscritos avisa quem deixou de caber nela.
@@ -19,7 +23,7 @@ export default defineEventHandler(async (event) => {
       tipo: true,
       eventoId: true,
       modalidade: { select: { kyuInicial: true } },
-      categorias: { select: { id: true } },
+      categorias: { select: { id: true, tipo: true } },
     },
   })
   if (!subevento) return responderErro(event, ['Competição não encontrada.'], '/eventos')
@@ -30,12 +34,12 @@ export default defineEventHandler(async (event) => {
   }
 
   const id = texto(corpo.id)
-  if (id && !subevento.categorias.some(c => c.id === id)) {
-    return responderErro(event, ['Categoria não encontrada.'], voltar)
-  }
+  const existente = subevento.categorias.find(c => c.id === id)
+  if (id && !existente) return responderErro(event, ['Categoria não encontrada.'], voltar)
 
   const dados = {
     nome: texto(corpo.nome),
+    tipo: existente?.tipo ?? texto(corpo.tipo),
     sexo: texto(corpo.sexo),
     idadeMinima: lerIdade(texto(corpo.idadeMinima)),
     idadeMaxima: lerIdade(texto(corpo.idadeMaxima)),
@@ -46,6 +50,7 @@ export default defineEventHandler(async (event) => {
   const problemas = problemasDaCategoria(dados, subevento.modalidade.kyuInicial)
   if (problemas.length > 0) return responderErro(event, problemas, voltar)
 
+  const tipo = dados.tipo as TipoCategoria
   const colunas = {
     nome: dados.nome,
     sexo: dados.sexo as SexoCategoria,
@@ -58,11 +63,13 @@ export default defineEventHandler(async (event) => {
 
   try {
     if (id) await prisma.categoriaCompeticao.update({ where: { id }, data: colunas })
-    else await prisma.categoriaCompeticao.create({ data: { ...colunas, subeventoId: subevento.id } })
+    else await prisma.categoriaCompeticao.create({ data: { ...colunas, tipo, subeventoId: subevento.id } })
   }
   catch (erro) {
     if ((erro as { code?: string })?.code === 'P2002') {
-      return responderErro(event, [`Esta competição já tem a categoria "${dados.nome}".`], voltar)
+      return responderErro(event, [
+        `Esta competição já tem a categoria "${dados.nome}" (${ROTULO_DO_TIPO_DE_CATEGORIA[tipo].toLowerCase()}).`,
+      ], voltar)
     }
     throw erro
   }

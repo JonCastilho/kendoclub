@@ -371,10 +371,10 @@ export interface SituacaoNoExame {
   temBancaDeShogo: boolean
 }
 
+/** Categoria escolhida em cada disputa; nula é "não participa dela". */
 export interface ParticipacaoNaCompeticao {
-  categoriaId: string
-  individual: boolean
-  equipe: boolean
+  categoriaIndividualId: string | null
+  categoriaEquipeId: string | null
 }
 
 export type InscricaoDetalhada = InscricaoNormalizada & {

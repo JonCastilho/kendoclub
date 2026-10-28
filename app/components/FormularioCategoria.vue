@@ -1,16 +1,21 @@
 <script setup lang="ts">
-import { ROTULO_DO_SEXO, type SexoCategoria } from '~~/shared/competicao'
+import { ROTULO_DO_SEXO, type SexoCategoria, type TipoCategoria } from '~~/shared/competicao'
 import type { CategoriaDetalhada } from '~~/shared/evento'
 import { grausDaModalidade, rotuloDoGrau } from '~~/shared/graduacao'
 
-/** Criação e edição de categoria: mesmo formulário, com ou sem `categoria`. */
+/**
+ * Criação e edição de categoria: mesmo formulário, com ou sem `categoria`. O
+ * tipo (individual ou por equipes) vem da lista em que o formulário aparece, e
+ * não se escolhe aqui.
+ */
 const props = defineProps<{
   subeventoId: string
   kyuInicial: number
+  tipo: TipoCategoria
   categoria?: CategoriaDetalhada
 }>()
 
-const prefixo = props.categoria?.id ?? `nova-${props.subeventoId}`
+const prefixo = props.categoria?.id ?? `nova-${props.tipo}-${props.subeventoId}`
 const graus = computed(() => grausDaModalidade(props.kyuInicial))
 const sexos = Object.keys(ROTULO_DO_SEXO) as SexoCategoria[]
 
@@ -27,6 +32,11 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-2 py-
       type="hidden"
       name="subeventoId"
       :value="subeventoId"
+    >
+    <input
+      type="hidden"
+      name="tipo"
+      :value="tipo"
     >
     <input
       v-if="categoria"

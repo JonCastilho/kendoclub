@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import { rotuloDaFaixaDeGrau, rotuloDaIdade } from '~~/shared/competicao'
+import {
+  ROTULO_DO_TIPO_DE_CATEGORIA,
+  TIPOS_DE_CATEGORIA,
+  type TipoCategoria,
+  rotuloDaFaixaDeGrau,
+  rotuloDaIdade,
+} from '~~/shared/competicao'
 import { formatarReais } from '~~/shared/dinheiro'
 import { GRAUS_DE_EXAME, SHOGOS } from '~~/shared/exame'
 import { ROTULO_DO_SHOGO, grausDaModalidade, rotuloDoGrau } from '~~/shared/graduacao'
@@ -19,6 +25,10 @@ const { data: evento } = await useFetch<EventoDetalhado>(`/api/eventos/${id}`)
 const { data: modalidades } = await useFetch('/api/modalidades')
 
 useHead({ title: () => `Editar ${evento.value?.titulo ?? ''} - KendoClub` })
+
+function categoriasDoTipo(subevento: SubeventoDetalhado, tipo: TipoCategoria) {
+  return subevento.categorias.filter(c => c.tipo === tipo)
+}
 
 const modalidadesAtivas = computed(() => (modalidades.value ?? []).filter(m => m.ativa))
 
@@ -314,59 +324,80 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
           </h4>
           <p class="text-xs text-muted">
             Idade no ano do evento e graduação nesta modalidade; faixa em branco
-            não limita. Quem compete em categoria isenta não paga a participação.
+            não limita. Quem se inscreve escolhe no máximo uma categoria de cada
+            disputa, entre as que servem ao cadastro. A participação é paga uma
+            vez, e só é gratuita se todas as categorias escolhidas forem isentas.
             Sem categoria, a competição não pode ser publicada.
           </p>
 
           <div
-            v-for="categoria in subevento.categorias"
-            :key="categoria.id"
-            class="mt-3 rounded-md bg-elevated p-2"
+            v-for="tipo in TIPOS_DE_CATEGORIA"
+            :key="tipo"
+            class="mt-4"
           >
-            <FormularioCategoria
-              :subevento-id="subevento.id"
-              :kyu-inicial="subevento.modalidade.kyuInicial"
-              :categoria="categoria"
-            />
-            <form
-              method="post"
-              action="/api/eventos/categorias/remover"
-              class="mt-1 flex flex-wrap items-center gap-3 text-xs"
+            <h5 class="text-sm font-medium">
+              {{ ROTULO_DO_TIPO_DE_CATEGORIA[tipo] }}
+            </h5>
+            <p
+              v-if="!categoriasDoTipo(subevento, tipo).length"
+              class="text-xs text-muted"
             >
-              <input
-                type="hidden"
-                name="id"
-                :value="categoria.id"
-              >
-              <span class="text-muted">
-                {{ rotuloDaIdade(categoria.idadeMinima, categoria.idadeMaxima) }} ·
-                {{ rotuloDaFaixaDeGrau(categoria.grauMinimo, categoria.grauMaximo) }} ·
-                {{ categoria.isenta ? 'isenta · ' : '' }}{{ categoria.inscritos }} inscrito(s)
-              </span>
-              <label
-                v-if="categoria.inscritos > 0"
-                class="flex items-center gap-1"
+              Sem categorias {{ tipo === 'EQUIPE' ? 'por equipes' : 'individuais' }}:
+              ninguém se inscreve nesta disputa.
+            </p>
+
+            <div
+              v-for="categoria in categoriasDoTipo(subevento, tipo)"
+              :key="categoria.id"
+              class="mt-3 rounded-md bg-elevated p-2"
+            >
+              <FormularioCategoria
+                :subevento-id="subevento.id"
+                :kyu-inicial="subevento.modalidade.kyuInicial"
+                :tipo="tipo"
+                :categoria="categoria"
+              />
+              <form
+                method="post"
+                action="/api/eventos/categorias/remover"
+                class="mt-1 flex flex-wrap items-center gap-3 text-xs"
               >
                 <input
-                  type="checkbox"
-                  name="confirmar"
+                  type="hidden"
+                  name="id"
+                  :value="categoria.id"
                 >
-                confirmo tirar os inscritos da competição
-              </label>
-              <button
-                type="submit"
-                class="underline text-error"
-              >
-                Remover categoria
-              </button>
-            </form>
-          </div>
+                <span class="text-muted">
+                  {{ rotuloDaIdade(categoria.idadeMinima, categoria.idadeMaxima) }} ·
+                  {{ rotuloDaFaixaDeGrau(categoria.grauMinimo, categoria.grauMaximo) }} ·
+                  {{ categoria.isenta ? 'isenta · ' : '' }}{{ categoria.inscritos }} inscrito(s)
+                </span>
+                <label
+                  v-if="categoria.inscritos > 0"
+                  class="flex items-center gap-1"
+                >
+                  <input
+                    type="checkbox"
+                    name="confirmar"
+                  >
+                  confirmo tirar os inscritos desta disputa
+                </label>
+                <button
+                  type="submit"
+                  class="underline text-error"
+                >
+                  Remover categoria
+                </button>
+              </form>
+            </div>
 
-          <div class="mt-3 rounded-md border border-dashed border-default p-2">
-            <FormularioCategoria
-              :subevento-id="subevento.id"
-              :kyu-inicial="subevento.modalidade.kyuInicial"
-            />
+            <div class="mt-3 rounded-md border border-dashed border-default p-2">
+              <FormularioCategoria
+                :subevento-id="subevento.id"
+                :kyu-inicial="subevento.modalidade.kyuInicial"
+                :tipo="tipo"
+              />
+            </div>
           </div>
         </div>
 

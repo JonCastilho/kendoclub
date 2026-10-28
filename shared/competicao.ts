@@ -4,12 +4,22 @@ import { grauPertenceAModalidade, ordemDoGrau, rotuloDaGraduacao } from './gradu
 /**
  * Regras da competição (etapa 7.2). Motivos em PLANO.md, etapa 7.
  *
- * Cada campeonato traz a própria tabela de categorias; a categoria de cada
- * pessoa sai do cadastro — sexo, idade no ano e graduação na modalidade —, e
- * não de uma pergunta.
+ * Cada campeonato traz a própria tabela de categorias, separada por disputa
+ * (individual e por equipes). As categorias que servem a cada pessoa saem do
+ * cadastro — sexo, idade no ano e graduação na modalidade —, e a pessoa escolhe
+ * no máximo uma de cada disputa.
  */
 
 export type SexoCategoria = 'MASCULINO' | 'FEMININO' | 'MISTO'
+
+export type TipoCategoria = 'INDIVIDUAL' | 'EQUIPE'
+
+export const TIPOS_DE_CATEGORIA: TipoCategoria[] = ['INDIVIDUAL', 'EQUIPE']
+
+export const ROTULO_DO_TIPO_DE_CATEGORIA: Record<TipoCategoria, string> = {
+  INDIVIDUAL: 'Individual',
+  EQUIPE: 'Por equipes',
+}
 
 export const ROTULO_DO_SEXO: Record<SexoCategoria, string> = {
   MASCULINO: 'Masculino',
@@ -38,6 +48,7 @@ function posicao(grau: Grau | null): number {
 export interface Categoria {
   id: string
   nome: string
+  tipo: TipoCategoria
   sexo: SexoCategoria
   idadeMinima: number | null
   idadeMaxima: number | null
@@ -73,55 +84,57 @@ export function categoriasCompativeis<T extends Categoria>(categorias: T[], comp
 }
 
 export interface EscolhaNaCompeticao {
-  categoriaId: string
-  individual: boolean
-  equipe: boolean
+  /** Categoria escolhida em cada disputa; vazio é "não participo". */
+  individual: string
+  equipe: string
 }
 
 /**
- * Valida a participação numa competição e decide a categoria.
+ * Valida a participação numa competição.
  *
- * Uma categoria compatível entra sozinha. Mais de uma, a pessoa escolhe.
- * Nenhuma é recusa — e a mensagem aponta a tabela, porque quase sempre é ela
- * que está incompleta, não a pessoa que está errada.
+ * A pessoa escolhe no máximo uma categoria de cada disputa, entre as que servem
+ * ao cadastro, e ao menos uma disputa. Escolher categoria que não serve é
+ * recusa — e quando nenhuma da disputa serve, a mensagem aponta a tabela,
+ * porque quase sempre é ela que está incompleta, não a pessoa que está errada.
  */
 export function decidirCompeticao(
   escolha: EscolhaNaCompeticao,
-  compativeis: Array<{ id: string }>,
+  compativeis: Array<{ id: string, tipo: TipoCategoria }>,
   nomeDaCompeticao: string,
-): { categoriaId: string | null, problemas: string[] } {
+): { categoriaIndividualId: string | null, categoriaEquipeId: string | null, problemas: string[] } {
   const problemas: string[] = []
 
+  const decidir = (tipo: TipoCategoria, escolhida: string, disputa: string) => {
+    if (!escolhida) return null
+
+    const daDisputa = compativeis.filter(c => c.tipo === tipo)
+    if (daDisputa.some(c => c.id === escolhida)) return escolhida
+
+    problemas.push(daDisputa.length === 0
+      ? `Nenhuma categoria ${disputa} de ${nomeDaCompeticao} atende a este cadastro. `
+      + 'A tabela de categorias provavelmente está incompleta — avise a diretoria.'
+      : `A categoria ${disputa} escolhida em ${nomeDaCompeticao} não atende a este cadastro.`)
+    return null
+  }
+
+  const categoriaIndividualId = decidir('INDIVIDUAL', escolha.individual, 'individual')
+  const categoriaEquipeId = decidir('EQUIPE', escolha.equipe, 'por equipes')
+
   if (!escolha.individual && !escolha.equipe) {
-    problemas.push(`Em ${nomeDaCompeticao}, marque individual, equipe ou os dois.`)
+    problemas.push(`Em ${nomeDaCompeticao}, escolha a disputa individual, por equipes ou as duas.`)
   }
 
-  if (compativeis.length === 0) {
-    problemas.push(
-      `Nenhuma categoria de ${nomeDaCompeticao} atende a este cadastro. `
-      + 'A tabela de categorias provavelmente está incompleta — avise a diretoria.')
-    return { categoriaId: null, problemas }
-  }
+  return { categoriaIndividualId, categoriaEquipeId, problemas }
+}
 
-  if (compativeis.length === 1) {
-    return { categoriaId: compativeis[0]!.id, problemas }
-  }
-
-  if (!escolha.categoriaId) {
-    problemas.push(`Em ${nomeDaCompeticao}, escolha a categoria.`)
-    return { categoriaId: null, problemas }
-  }
-
-  if (!compativeis.some(c => c.id === escolha.categoriaId)) {
-    problemas.push(`A categoria escolhida em ${nomeDaCompeticao} não atende a este cadastro.`)
-    return { categoriaId: null, problemas }
-  }
-
-  return { categoriaId: escolha.categoriaId, problemas }
+/** A participação só é gratuita se todas as categorias escolhidas são isentas. */
+export function participacaoIsenta(escolhidas: Array<{ isenta: boolean } | undefined>): boolean {
+  return escolhidas.length > 0 && escolhidas.every(c => c?.isenta === true)
 }
 
 export interface DadosDaCategoria {
   nome: string
+  tipo: string
   sexo: string
   idadeMinima: number | null
   idadeMaxima: number | null
@@ -140,6 +153,9 @@ export function problemasDaCategoria(dados: DadosDaCategoria, kyuInicial: number
   const problemas: string[] = []
 
   if (!dados.nome.trim()) problemas.push('Informe o nome da categoria.')
+  if (!TIPOS_DE_CATEGORIA.includes(dados.tipo as TipoCategoria)) {
+    problemas.push('Escolha o tipo da categoria: individual ou por equipes.')
+  }
   if (!['MASCULINO', 'FEMININO', 'MISTO'].includes(dados.sexo)) problemas.push('Escolha o sexo da categoria.')
 
   const idades = [dados.idadeMinima, dados.idadeMaxima]

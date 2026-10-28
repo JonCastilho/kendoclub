@@ -3,11 +3,13 @@ import type { EventoDetalhado, InscritosDoEvento } from '../../shared/evento'
 import { ENDERECO, comoDiretoria, dadosDePraticante, entrar, enviar, gerarCpf, ler } from './ajudantes'
 
 /**
- * Competição (etapa 7.2): tabela de categorias e categoria tirada do cadastro.
+ * Competição (etapa 7.2): tabela de categorias, separada em individual e por
+ * equipes, com as categorias que servem tiradas do cadastro.
  *
  * Duas pessoas com cadastros escolhidos para cair em casos diferentes:
- * - a kenshi, 2º dan, feminino: serve em duas categorias e precisa escolher;
- * - o mukyu, masculino, sem a modalidade no cadastro: serve em uma só.
+ * - a kenshi, 2º dan, feminino: serve em duas categorias individuais e precisa
+ *   escolher; na disputa por equipes serve em uma só;
+ * - o mukyu, masculino, sem a modalidade no cadastro: serve em uma de cada.
  */
 
 let diretoria = ''
@@ -30,7 +32,7 @@ interface Competicao {
 
 async function categoria(subeventoId: string, campos: Record<string, string>) {
   return enviar('/api/eventos/categorias', {
-    subeventoId, sexo: 'MISTO', ...campos,
+    subeventoId, tipo: 'INDIVIDUAL', sexo: 'MISTO', ...campos,
   }, { cookie: diretoria })
 }
 
@@ -72,6 +74,8 @@ const TABELA: Array<Record<string, string>> = [
   { nome: 'Feminino dan', sexo: 'FEMININO', grauMinimo: 'DAN_1', isenta: 'on' },
   { nome: 'Adulto', idadeMinima: '18' },
   { nome: 'Juvenil', idadeMaxima: '17' },
+  { nome: 'Equipe adulto', tipo: 'EQUIPE', idadeMinima: '18' },
+  { nome: 'Equipe juvenil', tipo: 'EQUIPE', idadeMaxima: '17' },
 ]
 
 function inscrever(c: Competicao, campos: Record<string, string>, cookie = kenshi,
@@ -151,6 +155,26 @@ describe('tabela de categorias', () => {
       .toContain('já tem a categoria')
   })
 
+  it('o mesmo nome pode existir nas duas disputas', async () => {
+    const c = await competicao('Taikai Com Adulto Nas Duas', [{ nome: 'Adulto', idadeMinima: '18' }])
+
+    const equipe = await categoria(c.subeventoId, { nome: 'Adulto', tipo: 'EQUIPE', idadeMinima: '18' })
+    expect(equipe.ok).toBe(true)
+    expect((await categoria(c.subeventoId, { nome: 'Adulto', tipo: 'EQUIPE' })).problemas[0])
+      .toContain('já tem a categoria "Adulto" (por equipes)')
+  })
+
+  it('exige o tipo, e o tipo de uma categoria não muda depois de criada', async () => {
+    const c = await competicao('Taikai Do Tipo Fixo', [{ nome: 'Adulto', idadeMinima: '18' }])
+
+    expect((await categoria(c.subeventoId, { nome: 'Sem tipo', tipo: '' })).problemas[0])
+      .toContain('individual ou por equipes')
+
+    await categoria(c.subeventoId, { id: c.categorias.Adulto!, nome: 'Adulto', tipo: 'EQUIPE', idadeMinima: '18' })
+    const { dados } = await ler<EventoDetalhado>(`/api/eventos/${c.evento.id}`, diretoria)
+    expect(dados.subeventos[0]!.categorias).toMatchObject([{ nome: 'Adulto', tipo: 'INDIVIDUAL' }])
+  })
+
   it('só competição tem categoria', async () => {
     const criado = await enviar('/api/eventos', {
       titulo: 'Seminário Sem Categoria', descricao: 'x', prazoInscricao: daqui(10),
@@ -184,7 +208,7 @@ describe('tabela de categorias', () => {
   })
 })
 
-describe('categoria tirada do cadastro', () => {
+describe('categorias tiradas do cadastro', () => {
   it('mostra idade no ano, graduação e as categorias que servem', async () => {
     const c = await competicao('Taikai Da Situação', TABELA)
     const { dados } = await ler<EventoDetalhado>(`/api/eventos/${c.evento.slug}`, kenshi)
@@ -194,92 +218,98 @@ describe('categoria tirada do cadastro', () => {
     expect(dados.competidor[c.subeventoId]).toEqual({
       idade: anoDoEvento - 1990,
       grau: 'DAN_2',
-      compativeis: [c.categorias['Feminino dan'], c.categorias.Adulto],
+      compativeis: [c.categorias['Feminino dan'], c.categorias.Adulto, c.categorias['Equipe adulto']],
     })
   })
 
-  it('com mais de uma categoria, pede a escolha', async () => {
+  it('escolhe uma categoria de cada disputa, e paga a participação uma vez', async () => {
     const c = await competicao('Taikai Da Escolha', TABELA)
+    const individual = `individual_${c.subeventoId}`
+    const equipe = `equipe_${c.subeventoId}`
 
-    const sem = await inscrever(c, { [`individual_${c.subeventoId}`]: 'on' })
-    expect(sem.problemas[0]).toContain('escolha a categoria')
+    const nenhuma = await inscrever(c, {})
+    expect(nenhuma.problemas[0]).toContain('individual, por equipes')
 
-    const com = await inscrever(c, {
-      [`individual_${c.subeventoId}`]: 'on', [`categoria_${c.subeventoId}`]: c.categorias.Adulto!,
+    expect((await inscrever(c, { [individual]: c.categorias.Adulto! })).ok).toBe(true)
+    const soIndividual = await ler<EventoDetalhado>(`/api/eventos/${c.evento.slug}`, kenshi)
+    expect(soIndividual.dados.inscricao?.competicoes[c.subeventoId]).toEqual({
+      categoriaIndividualId: c.categorias.Adulto, categoriaEquipeId: null,
     })
-    expect(com.ok).toBe(true)
+    expect(soIndividual.dados.inscricao?.total).toBe(50)
 
-    const { dados } = await ler<EventoDetalhado>(`/api/eventos/${c.evento.slug}`, kenshi)
-    expect(dados.inscricao?.competicoes[c.subeventoId]).toEqual({
-      categoriaId: c.categorias.Adulto, individual: true, equipe: false,
+    expect((await inscrever(c, {
+      [individual]: c.categorias.Adulto!, [equipe]: c.categorias['Equipe adulto']!,
+    })).ok).toBe(true)
+    const nasDuas = await ler<EventoDetalhado>(`/api/eventos/${c.evento.slug}`, kenshi)
+    expect(nasDuas.dados.inscricao?.competicoes[c.subeventoId]).toEqual({
+      categoriaIndividualId: c.categorias.Adulto, categoriaEquipeId: c.categorias['Equipe adulto'],
     })
-    expect(dados.inscricao?.total).toBe(50)
+    expect(nasDuas.dados.inscricao?.total).toBe(50)
   })
 
   it('recusa categoria que existe no evento mas não serve ao cadastro', async () => {
     const c = await competicao('Taikai Da Categoria Errada', TABELA)
-    const resposta = await inscrever(c, {
-      [`individual_${c.subeventoId}`]: 'on', [`categoria_${c.subeventoId}`]: c.categorias.Juvenil!,
-    })
+    const individual = await inscrever(c, { [`individual_${c.subeventoId}`]: c.categorias.Juvenil! })
+    expect(individual.problemas[0]).toContain('não atende')
+
+    const equipe = await inscrever(c, { [`equipe_${c.subeventoId}`]: c.categorias['Equipe juvenil']! })
+    expect(equipe.problemas[0]).toContain('não atende')
+  })
+
+  it('recusa categoria de uma disputa escolhida na outra', async () => {
+    const c = await competicao('Taikai Da Disputa Trocada', TABELA)
+    const resposta = await inscrever(c, { [`individual_${c.subeventoId}`]: c.categorias['Equipe adulto']! })
     expect(resposta.problemas[0]).toContain('não atende')
   })
 
-  it('exige individual, equipe ou os dois', async () => {
-    const c = await competicao('Taikai Sem Modo', TABELA)
-    const resposta = await inscrever(c, { [`categoria_${c.subeventoId}`]: c.categorias.Adulto! })
-    expect(resposta.problemas[0]).toContain('individual, equipe')
-  })
-
-  it('com uma só categoria, ela entra sozinha — mukyu conta como sem graduação', async () => {
-    const c = await competicao('Taikai Da Categoria Única', TABELA)
+  it('compete só por equipes — mukyu conta como sem graduação', async () => {
+    const c = await competicao('Taikai Só Por Equipes', TABELA)
 
     const resposta = await inscrever(c, {
-      praticanteId: mukyuId, [`equipe_${c.subeventoId}`]: 'on',
+      praticanteId: mukyuId, [`equipe_${c.subeventoId}`]: c.categorias['Equipe adulto']!,
     }, diretoria)
     expect(resposta.ok).toBe(true)
 
     const { dados } = await ler<EventoDetalhado>(`/api/eventos/${c.evento.slug}?praticante=${mukyuId}`, diretoria)
     expect(dados.competidor[c.subeventoId]!.grau).toBeNull()
     expect(dados.inscricao?.competicoes[c.subeventoId]).toEqual({
-      categoriaId: c.categorias.Adulto, individual: false, equipe: true,
+      categoriaIndividualId: null, categoriaEquipeId: c.categorias['Equipe adulto'],
     })
   })
 
-  it('sem categoria que sirva, recusa — também para a diretoria', async () => {
+  it('sem categoria da disputa que sirva, recusa apontando a tabela — também para a diretoria', async () => {
     const c = await competicao('Taikai Só Juvenil', [{ nome: 'Juvenil', idadeMaxima: '17' }])
 
     const resposta = await inscrever(c, {
-      praticanteId: mukyuId, [`individual_${c.subeventoId}`]: 'on',
+      praticanteId: mukyuId, [`individual_${c.subeventoId}`]: c.categorias.Juvenil!,
     }, diretoria)
     expect(resposta.problemas[0]).toContain('tabela de categorias')
   })
 
-  it('trocar categoria e modo atualiza a inscrição, e categoria isenta zera a participação', async () => {
+  it('trocar de categoria atualiza a inscrição; só é gratuita se todas forem isentas', async () => {
     const c = await competicao('Taikai Da Troca', TABELA)
+    const individual = `individual_${c.subeventoId}`
+    const equipe = `equipe_${c.subeventoId}`
+    const total = async () =>
+      (await ler<EventoDetalhado>(`/api/eventos/${c.evento.slug}`, kenshi)).dados.inscricao?.total
 
-    await inscrever(c, {
-      [`individual_${c.subeventoId}`]: 'on', [`categoria_${c.subeventoId}`]: c.categorias.Adulto!,
-    })
-    await inscrever(c, {
-      [`individual_${c.subeventoId}`]: 'on', [`equipe_${c.subeventoId}`]: 'on',
-      [`categoria_${c.subeventoId}`]: c.categorias['Feminino dan']!,
-    })
+    await inscrever(c, { [individual]: c.categorias.Adulto! })
+    expect(await total()).toBe(50)
 
-    const { dados } = await ler<EventoDetalhado>(`/api/eventos/${c.evento.slug}`, kenshi)
-    expect(dados.inscricao?.competicoes[c.subeventoId]).toEqual({
-      categoriaId: c.categorias['Feminino dan'], individual: true, equipe: true,
-    })
     // Valor da competição é 50, mas Feminino dan é isenta.
-    expect(dados.inscricao?.total).toBe(0)
+    await inscrever(c, { [individual]: c.categorias['Feminino dan']! })
+    expect(await total()).toBe(0)
+
+    // Equipe adulto não é isenta: a participação passa a ser paga.
+    await inscrever(c, { [individual]: c.categorias['Feminino dan']!, [equipe]: c.categorias['Equipe adulto']! })
+    expect(await total()).toBe(50)
   })
 })
 
 describe('lista de inscritos e mudanças na tabela', () => {
-  it('mostra a categoria e avisa quem deixou de caber nela', async () => {
+  it('mostra as categorias e avisa quem deixou de caber nelas', async () => {
     const c = await competicao('Taikai Da Tabela Que Mudou', TABELA)
-    await inscrever(c, {
-      [`individual_${c.subeventoId}`]: 'on', [`categoria_${c.subeventoId}`]: c.categorias.Adulto!,
-    })
+    await inscrever(c, { [`individual_${c.subeventoId}`]: c.categorias.Adulto! })
 
     const antes = await ler<InscritosDoEvento>(`/api/eventos/${c.evento.id}/inscritos`, diretoria)
     expect(antes.dados.inscritos[0]!.foraDaCategoria).toEqual([])
@@ -290,14 +320,29 @@ describe('lista de inscritos e mudanças na tabela', () => {
     })
 
     const depois = await ler<InscritosDoEvento>(`/api/eventos/${c.evento.id}/inscritos`, diretoria)
-    expect(depois.dados.inscritos[0]!.competicoes[c.subeventoId]!.categoriaId).toBe(c.categorias.Adulto)
+    expect(depois.dados.inscritos[0]!.competicoes[c.subeventoId]).toEqual({
+      categoriaIndividualId: c.categorias.Adulto, categoriaEquipeId: null,
+    })
     expect(depois.dados.inscritos[0]!.foraDaCategoria).toEqual([c.subeventoId])
   })
 
-  it('remover categoria com inscritos pede confirmação e mantém o resto da inscrição', async () => {
+  it('avisa também quando é a categoria de equipe que deixou de servir', async () => {
+    const c = await competicao('Taikai Da Equipe Que Mudou', TABELA)
+    await inscrever(c, { [`equipe_${c.subeventoId}`]: c.categorias['Equipe adulto']! })
+
+    await categoria(c.subeventoId, {
+      id: c.categorias['Equipe adulto']!, nome: 'Equipe adulto', idadeMinima: '50',
+    })
+
+    const { dados } = await ler<InscritosDoEvento>(`/api/eventos/${c.evento.id}/inscritos`, diretoria)
+    expect(dados.inscritos[0]!.foraDaCategoria).toEqual([c.subeventoId])
+  })
+
+  it('remover categoria tira só aquela disputa; sem nenhuma, a pessoa sai da competição', async () => {
     const c = await competicao('Taikai Da Categoria Removida', TABELA)
     await inscrever(c, {
-      [`individual_${c.subeventoId}`]: 'on', [`categoria_${c.subeventoId}`]: c.categorias.Adulto!,
+      [`individual_${c.subeventoId}`]: c.categorias.Adulto!,
+      [`equipe_${c.subeventoId}`]: c.categorias['Equipe adulto']!,
       [`obento_${daqui(20)}`]: '2',
     })
 
@@ -308,8 +353,16 @@ describe('lista de inscritos e mudanças na tabela', () => {
     await enviar('/api/eventos/categorias/remover', { id: c.categorias.Adulto!, confirmar: 'on' },
       { cookie: diretoria })
 
+    const meio = await ler<EventoDetalhado>(`/api/eventos/${c.evento.slug}`, kenshi)
+    expect(meio.dados.subeventos[0]!.categorias.map(x => x.nome)).not.toContain('Adulto')
+    expect(meio.dados.inscricao?.competicoes[c.subeventoId]).toEqual({
+      categoriaIndividualId: null, categoriaEquipeId: c.categorias['Equipe adulto'],
+    })
+
+    await enviar('/api/eventos/categorias/remover', { id: c.categorias['Equipe adulto']!, confirmar: 'on' },
+      { cookie: diretoria })
+
     const { dados } = await ler<EventoDetalhado>(`/api/eventos/${c.evento.slug}`, kenshi)
-    expect(dados.subeventos[0]!.categorias.map(x => x.nome)).not.toContain('Adulto')
     expect(dados.inscricao).toMatchObject({ subeventoIds: [], obentos: { [daqui(20)]: 2 } })
   })
 })
@@ -320,19 +373,22 @@ describe('telas', () => {
     return { status: resposta.status, texto: await resposta.text() }
   }
 
-  it('a inscrição pede a categoria quando há escolha, com os nomes que o servidor lê', async () => {
+  it('a inscrição oferece só as categorias que servem, com os nomes que o servidor lê', async () => {
     const c = await competicao('Taikai Na Tela Da Kenshi', TABELA)
     const { texto } = await html(`/agenda/${c.evento.slug}`, kenshi)
 
-    expect(texto).toContain(`name="categoria_${c.subeventoId}"`)
+    // Duas individuais servem: lista para escolher. Uma de equipe: caixa de marcar.
     expect(texto).toContain(`name="individual_${c.subeventoId}"`)
     expect(texto).toContain(`name="equipe_${c.subeventoId}"`)
+    expect(texto).not.toContain(`name="categoria_${c.subeventoId}"`)
     expect(texto).toContain(`value="${c.categorias['Feminino dan']}"`)
-    // Juvenil não serve a ela, então não aparece como opção.
+    expect(texto).toContain(`value="${c.categorias['Equipe adulto']}"`)
+    // Juvenil não serve a ela, nas duas disputas.
     expect(texto).not.toContain(`value="${c.categorias.Juvenil}"`)
+    expect(texto).not.toContain(`value="${c.categorias['Equipe juvenil']}"`)
   })
 
-  it('a tela de edição traz a tabela de categorias', async () => {
+  it('a tela de edição traz a tabela, separada por disputa', async () => {
     const c = await competicao('Taikai Na Tela Da Diretoria', TABELA)
     const { status, texto } = await html(`/eventos/${c.evento.id}`, diretoria)
 
@@ -340,5 +396,7 @@ describe('telas', () => {
     expect(texto).toContain('action="/api/eventos/categorias"')
     expect(texto).toContain('action="/api/eventos/categorias/remover"')
     expect(texto).toContain('name="grauMinimo"')
+    expect(texto).toContain('value="INDIVIDUAL"')
+    expect(texto).toContain('value="EQUIPE"')
   })
 })

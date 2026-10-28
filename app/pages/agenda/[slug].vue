@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { ROTULO_DO_SEXO, rotuloDaFaixaDeGrau, rotuloDaIdade } from '~~/shared/competicao'
+import {
+  ROTULO_DO_SEXO,
+  ROTULO_DO_TIPO_DE_CATEGORIA,
+  TIPOS_DE_CATEGORIA,
+  type TipoCategoria,
+  rotuloDaFaixaDeGrau,
+  rotuloDaIdade,
+} from '~~/shared/competicao'
 import { formatarReais } from '~~/shared/dinheiro'
 import {
   type EventoDetalhado,
@@ -41,9 +48,32 @@ const { data: praticantes } = await useFetch('/api/praticantes', {
 const outrosPraticantes = computed(() =>
   (praticantes.value?.praticantes ?? []).filter(p => p.id !== user.value?.praticanteId))
 
-function categoriasQueServem(subevento: SubeventoDetalhado) {
+/** Categorias da disputa que servem ao cadastro de quem está sendo inscrito. */
+function categoriasQueServem(subevento: SubeventoDetalhado, tipo: TipoCategoria) {
   const compativeis = evento.value?.competidor[subevento.id]?.compativeis ?? []
-  return subevento.categorias.filter(c => compativeis.includes(c.id))
+  return subevento.categorias.filter(c => c.tipo === tipo && compativeis.includes(c.id))
+}
+
+function temDisputa(subevento: SubeventoDetalhado, tipo: TipoCategoria) {
+  return subevento.categorias.some(c => c.tipo === tipo)
+}
+
+/**
+ * Categoria marcada na disputa. Em inscrição nova, a individual já vem marcada
+ * quando só uma categoria serve; as demais começam em "não participo".
+ */
+function categoriaEscolhida(subevento: SubeventoDetalhado, tipo: TipoCategoria) {
+  const participacao = evento.value?.inscricao?.competicoes[subevento.id]
+  if (!participacao) {
+    const unica = categoriasQueServem(subevento, tipo)
+    return tipo === 'INDIVIDUAL' && unica.length === 1 ? unica[0]!.id : ''
+  }
+  return (tipo === 'INDIVIDUAL' ? participacao.categoriaIndividualId : participacao.categoriaEquipeId) ?? ''
+}
+
+/** Nome do campo do formulário: `individual_<id>` e `equipe_<id>`. */
+function campoDaDisputa(subevento: SubeventoDetalhado, tipo: TipoCategoria) {
+  return `${tipo === 'INDIVIDUAL' ? 'individual' : 'equipe'}_${subevento.id}`
 }
 
 /** Preço de quem compete na categoria: o da competição, ou nada se isenta. */
@@ -157,7 +187,8 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
               v-for="categoria in subevento.categorias"
               :key="categoria.id"
             >
-              {{ categoria.nome }} ({{ ROTULO_DO_SEXO[categoria.sexo].toLowerCase() }},
+              {{ ROTULO_DO_TIPO_DE_CATEGORIA[categoria.tipo] }}: {{ categoria.nome }}
+              ({{ ROTULO_DO_SEXO[categoria.sexo].toLowerCase() }},
               {{ rotuloDaIdade(categoria.idadeMinima, categoria.idadeMaxima) }},
               {{ rotuloDaFaixaDeGrau(categoria.grauMinimo, categoria.grauMaximo) }})
               — {{ precoNaCategoria(subevento, categoria.isenta) }}
@@ -405,78 +436,82 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
                     </p>
                   </div>
 
-                  <!-- Competição: a categoria sai do cadastro. Só se pergunta
-                       algo quando mais de uma categoria serve. -->
+                  <!-- Competição: as categorias que servem saem do cadastro, e a
+                       pessoa escolhe no máximo uma de cada disputa. -->
                   <div
                     v-if="subevento.tipo === 'COMPETICAO' && evento.competidor[subevento.id]"
-                    class="ml-6 mt-2 flex flex-col gap-2 text-sm"
+                    class="ml-6 mt-2 flex flex-col gap-3 text-sm"
                   >
                     <p class="text-muted">
                       Idade no ano do evento: {{ evento.competidor[subevento.id]!.idade }} ·
                       graduação: {{ rotuloDaGraduacao(evento.competidor[subevento.id]!.grau) }}
                     </p>
 
-                    <p
-                      v-if="!categoriasQueServem(subevento).length"
-                      class="text-warning"
+                    <template
+                      v-for="tipo in TIPOS_DE_CATEGORIA"
+                      :key="tipo"
                     >
-                      Nenhuma categoria desta competição atende a este cadastro. A
-                      tabela de categorias provavelmente está incompleta — avise a
-                      diretoria.
-                    </p>
-
-                    <template v-else>
-                      <p v-if="categoriasQueServem(subevento).length === 1">
-                        Categoria: <strong>{{ categoriasQueServem(subevento)[0]!.nome }}</strong>
-                        — {{ precoNaCategoria(subevento, categoriasQueServem(subevento)[0]!.isenta) }}
-                      </p>
-
-                      <div v-else>
-                        <label
-                          :for="`categoria_${subevento.id}`"
-                          class="block"
-                        >Você se encaixa em mais de uma categoria. Escolha uma:</label>
-                        <select
-                          :id="`categoria_${subevento.id}`"
-                          :name="`categoria_${subevento.id}`"
-                          :class="classeCampo"
+                      <div v-if="temDisputa(subevento, tipo)">
+                        <p
+                          v-if="!categoriasQueServem(subevento, tipo).length"
+                          class="text-warning"
                         >
-                          <option
-                            value=""
-                            :selected="!evento.inscricao?.competicoes[subevento.id]"
-                          >
-                            Escolha
-                          </option>
-                          <option
-                            v-for="categoria in categoriasQueServem(subevento)"
-                            :key="categoria.id"
-                            :value="categoria.id"
-                            :selected="evento.inscricao?.competicoes[subevento.id]?.categoriaId === categoria.id"
-                          >
-                            {{ categoria.nome }} — {{ precoNaCategoria(subevento, categoria.isenta) }}
-                          </option>
-                        </select>
-                      </div>
+                          {{ ROTULO_DO_TIPO_DE_CATEGORIA[tipo] }}: nenhuma categoria atende a este
+                          cadastro. A tabela de categorias provavelmente está incompleta — avise a
+                          diretoria.
+                        </p>
 
-                      <div class="flex gap-4">
-                        <label class="flex items-center gap-2">
+                        <label
+                          v-else-if="categoriasQueServem(subevento, tipo).length === 1"
+                          class="flex items-center gap-2"
+                        >
                           <input
                             type="checkbox"
-                            :name="`individual_${subevento.id}`"
-                            :checked="evento.inscricao?.competicoes[subevento.id]?.individual ?? true"
+                            :name="campoDaDisputa(subevento, tipo)"
+                            :value="categoriasQueServem(subevento, tipo)[0]!.id"
+                            :checked="categoriaEscolhida(subevento, tipo) === categoriasQueServem(subevento, tipo)[0]!.id"
                           >
-                          Individual
+                          <span>
+                            {{ ROTULO_DO_TIPO_DE_CATEGORIA[tipo] }}:
+                            <strong>{{ categoriasQueServem(subevento, tipo)[0]!.nome }}</strong>
+                            — {{ precoNaCategoria(subevento, categoriasQueServem(subevento, tipo)[0]!.isenta) }}
+                          </span>
                         </label>
-                        <label class="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            :name="`equipe_${subevento.id}`"
-                            :checked="evento.inscricao?.competicoes[subevento.id]?.equipe"
+
+                        <div v-else>
+                          <label
+                            :for="campoDaDisputa(subevento, tipo)"
+                            class="block"
+                          >{{ ROTULO_DO_TIPO_DE_CATEGORIA[tipo] }}: você se encaixa em mais de uma
+                            categoria. Escolha uma, ou nenhuma para não participar:</label>
+                          <select
+                            :id="campoDaDisputa(subevento, tipo)"
+                            :name="campoDaDisputa(subevento, tipo)"
+                            :class="classeCampo"
                           >
-                          Equipe
-                        </label>
+                            <option
+                              value=""
+                              :selected="!categoriaEscolhida(subevento, tipo)"
+                            >
+                              Não participo
+                            </option>
+                            <option
+                              v-for="categoria in categoriasQueServem(subevento, tipo)"
+                              :key="categoria.id"
+                              :value="categoria.id"
+                              :selected="categoriaEscolhida(subevento, tipo) === categoria.id"
+                            >
+                              {{ categoria.nome }} — {{ precoNaCategoria(subevento, categoria.isenta) }}
+                            </option>
+                          </select>
+                        </div>
                       </div>
                     </template>
+
+                    <p class="text-xs text-muted">
+                      A participação é paga uma vez, mesmo competindo nas duas disputas, e só é
+                      gratuita se todas as categorias escolhidas forem isentas.
+                    </p>
                   </div>
                 </div>
               </div>

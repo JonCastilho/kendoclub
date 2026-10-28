@@ -18,9 +18,9 @@ import { podeVer } from '~~/shared/publicacao'
  *
  * O formulário manda o estado completo — subeventos marcados (`subevento_<id>`),
  * alojamento, quantidade de obento por dia (`obento_<dia>`) e, em cada
- * competição, categoria e modo (`categoria_<id>`, `individual_<id>`,
- * `equipe_<id>`) — e o servidor faz a inscrição ficar igual a ele. Estado vazio
- * é desistência.
+ * competição, a categoria de cada disputa (`individual_<id>` e `equipe_<id>`,
+ * vazio é "não participo") — e o servidor faz a inscrição ficar igual a ele.
+ * Estado vazio é desistência.
  */
 export default defineEventHandler(async (event) => {
   const usuario = await exigirUsuario(event)
@@ -103,16 +103,18 @@ export default defineEventHandler(async (event) => {
     if (subevento.tipo !== 'COMPETICAO' || !inscricao.subeventoIds.includes(subevento.id)) continue
 
     const escolha = {
-      categoriaId: texto(corpo[`categoria_${subevento.id}`]),
-      individual: marcado(corpo[`individual_${subevento.id}`]),
-      equipe: marcado(corpo[`equipe_${subevento.id}`]),
+      individual: texto(corpo[`individual_${subevento.id}`]),
+      equipe: texto(corpo[`equipe_${subevento.id}`]),
     }
     const compativeis = categoriasCompativeis(subevento.categorias, competidorNa(praticante, subevento))
     const nome = `${ROTULO_DO_TIPO[subevento.tipo].toLowerCase()} de ${subevento.modalidade.nome}`
     const decisao = decidirCompeticao(escolha, compativeis, nome)
 
     problemas.push(...decisao.problemas)
-    if (decisao.categoriaId) competicoes[subevento.id] = { ...escolha, categoriaId: decisao.categoriaId }
+    competicoes[subevento.id] = {
+      categoriaIndividualId: decisao.categoriaIndividualId,
+      categoriaEquipeId: decisao.categoriaEquipeId,
+    }
   }
 
   // No exame, graduação e shogo saem do cadastro. Só se pergunta algo a quem
@@ -164,13 +166,12 @@ export default defineEventHandler(async (event) => {
     })
 
     // Upsert, e não "criar se faltar": quem já estava na competição pode ter
-    // trocado de categoria ou de modo.
+    // trocado de categoria ou de disputa.
     for (const subeventoId of inscricao.subeventoIds) {
       const participacao = competicoes[subeventoId]
       const dados = {
-        categoriaId: participacao?.categoriaId ?? null,
-        individual: participacao?.individual ?? null,
-        equipe: participacao?.equipe ?? null,
+        categoriaIndividualId: participacao?.categoriaIndividualId ?? null,
+        categoriaEquipeId: participacao?.categoriaEquipeId ?? null,
         grauPretendido: exames[subeventoId]?.grau ?? null,
         shogoPretendido: exames[subeventoId]?.shogo ?? null,
       }

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ROTULO_DO_TIPO_DE_CATEGORIA } from '~~/shared/competicao'
 import { formatarReais } from '~~/shared/dinheiro'
 import { ROTULO_DO_SHOGO, rotuloDaGraduacao } from '~~/shared/graduacao'
 import {
@@ -17,8 +18,13 @@ const { data } = await useFetch<InscritosDoEvento>(`/api/eventos/${id}/inscritos
 
 useHead({ title: () => `Inscritos em ${data.value?.evento.titulo ?? ''} - KendoClub` })
 
-function nomeDaCategoria(subevento: SubeventoDetalhado, categoriaId: string | undefined) {
-  return subevento.categorias.find(c => c.id === categoriaId)?.nome ?? 'sem categoria'
+/** Uma linha por disputa em que a pessoa compete: "Individual: Adulto". */
+function disputasDe(subevento: SubeventoDetalhado, participacao: ParticipacaoNaCompeticao | undefined) {
+  const nome = (id: string | null | undefined) => subevento.categorias.find(c => c.id === id)?.nome
+  return [
+    { tipo: 'INDIVIDUAL' as const, nome: nome(participacao?.categoriaIndividualId) },
+    { tipo: 'EQUIPE' as const, nome: nome(participacao?.categoriaEquipeId) },
+  ].filter(d => d.nome)
 }
 
 /** "7º dan e Renshi", "Renshi", "1º kyu". */
@@ -28,12 +34,6 @@ function descreverExame(exame: ExamePrestado | undefined) {
     exame.grau ? rotuloDaGraduacao(exame.grau) : null,
     exame.shogo ? ROTULO_DO_SHOGO[exame.shogo] : null,
   ].filter(Boolean).join(' e ')
-}
-
-function modo(participacao: ParticipacaoNaCompeticao | undefined) {
-  if (!participacao) return ''
-  if (participacao.individual && participacao.equipe) return 'individual e equipe'
-  return participacao.individual ? 'individual' : 'equipe'
 }
 
 const naoFiliados = computed(() => (data.value?.inscritos ?? []).filter(i => !i.filiado).length)
@@ -189,8 +189,14 @@ const naoFiliados = computed(() => (data.value?.inscritos ?? []).filter(i => !i.
                 —
               </template>
               <template v-else-if="subevento.tipo === 'COMPETICAO'">
-                {{ nomeDaCategoria(subevento, inscrito.competicoes[subevento.id]?.categoriaId) }}
-                <span class="text-muted">({{ modo(inscrito.competicoes[subevento.id]) }})</span>
+                <span
+                  v-for="disputa in disputasDe(subevento, inscrito.competicoes[subevento.id])"
+                  :key="disputa.tipo"
+                  class="block"
+                >
+                  <span class="text-muted">{{ ROTULO_DO_TIPO_DE_CATEGORIA[disputa.tipo] }}:</span>
+                  {{ disputa.nome }}
+                </span>
                 <UBadge
                   v-if="inscrito.foraDaCategoria.includes(subevento.id)"
                   color="warning"

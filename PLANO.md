@@ -110,8 +110,10 @@ Subevento             id, eventoId, tipo (SEMINARIO|COMPETICAO|EXAME),
                       modalidadeId, local, dias (lista de datas),
                       valor? (participação no seminário e na competição)
                       único por (eventoId, tipo, modalidadeId)
-CategoriaCompeticao   id, subeventoId, nome, sexo (MASCULINO|FEMININO|MISTO),
+CategoriaCompeticao   id, subeventoId, nome, tipo (INDIVIDUAL|EQUIPE),
+                      sexo (MASCULINO|FEMININO|MISTO),
                       idadeMinima?, idadeMaxima?, grauMinimo?, grauMaximo?, isenta
+                      único por (subeventoId, tipo, nome)
 GraduacaoExame        id, subeventoId, grau (1º kyu ou dan), valor
                       único por (subeventoId, grau)
 ShogoExame            id, subeventoId, shogo (RENSHI|KYOSHI), valor
@@ -119,8 +121,9 @@ ShogoExame            id, subeventoId, shogo (RENSHI|KYOSHI), valor
 InscricaoEvento       id, eventoId, praticanteId, alojamento,
                       inscritoPorUsuarioId, criadoEm
                       único por (eventoId, praticanteId)
-InscricaoSubevento    id, inscricaoEventoId, subeventoId, categoriaId?,
-                      individual?, equipe?, grauPretendido?, shogoPretendido?
+InscricaoSubevento    id, inscricaoEventoId, subeventoId,
+                      categoriaIndividualId?, categoriaEquipeId?,
+                      grauPretendido?, shogoPretendido?
                       único por (inscricaoEventoId, subeventoId)
 EncomendaObento       id, inscricaoEventoId, dia, quantidade
                       único por (inscricaoEventoId, dia)
@@ -452,21 +455,25 @@ Seminário:
 
 Competição:
 
-- **Cada campeonato traz a própria tabela de categorias.** Uma categoria é
-  definida por sexo (masculino, feminino ou misto), faixa de idade e faixa de
-  graduação. Faixa em branco é faixa sem limite.
+- **Cada campeonato traz a própria tabela de categorias, separada por disputa:
+  individual e por equipes.** Uma categoria é de um tipo, e é definida por sexo
+  (masculino, feminino ou misto), faixa de idade e faixa de graduação. Faixa em
+  branco é faixa sem limite.
 - **O valor de participação é da competição**, e cobre individual e equipe
-  juntos. **Cada categoria pode ser marcada como isenta**: quem compete nela não
-  paga. Revisto com a diretoria na implementação — a primeira versão punha um
+  juntos: paga-se uma vez, mesmo competindo nas duas disputas. **Cada categoria
+  pode ser marcada como isenta**; a participação só é gratuita se todas as
+  categorias escolhidas forem isentas. Revisto com a diretoria na implementação — a primeira versão punha um
   valor em cada categoria, mas na prática o preço é um só e a exceção é a
   isenção (por exemplo, juvenil gratuito).
 - **A idade é a que a pessoa completa ou completou no ano do evento**: ano do
   evento menos ano de nascimento.
-- A inscrição marca individual, equipe ou os dois; ao menos um. **A diretoria
+- **Cada pessoa escolhe no máximo uma categoria de cada disputa**, entre as que
+  servem ao seu cadastro, e ao menos uma disputa. Escolher a categoria é
+  participar: não há marca separada de "individual" ou "equipe". **A diretoria
   monta as equipes depois**, fora do sistema.
-- **Uma categoria compatível** entra sozinha. **Mais de uma**: a pessoa escolhe
-  uma. **Nenhuma**: a inscrição é recusada com aviso de que a tabela de
-  categorias provavelmente está incompleta.
+- Disputa sem nenhuma categoria cadastrada não é oferecida. Disputa com
+  categorias, mas nenhuma que sirva ao cadastro, avisa que a tabela
+  provavelmente está incompleta.
 
 Exame:
 
@@ -551,18 +558,36 @@ Decisões da parte 7.2, tomadas na implementação:
   mudar a tabela ou o cadastro depois não mexe em quem já está inscrito. A lista
   de inscritos recalcula e marca "não cabe mais nesta categoria", para a
   diretoria decidir o que fazer.
-- **Remover categoria com inscritos pede confirmação e tira essas pessoas da
-  competição**, mantendo o resto da inscrição delas (outros subeventos, obento).
+- **Remover categoria com inscritos pede confirmação e tira essas pessoas
+  daquela disputa.** Quem também compete na outra continua nela; quem competiria
+  só na categoria removida sai da competição. O resto da inscrição (outros
+  subeventos, obento) continua.
 - **O ano da idade é o do primeiro dia da competição.** Só importa em evento que
   atravessa a virada do ano, e aí vale o ano em que a competição começa.
-- **A tela só pergunta a categoria quando há escolha**, e só oferece as que
-  servem. A programação pública mostra a tabela inteira, para quem ainda não
-  entrou saber em que categoria cairia. Individual vem marcado por padrão.
+- **A tela só oferece as categorias que servem.** Com uma só na disputa, é uma
+  caixa de marcar; com mais de uma, uma lista com "não participo". A programação
+  pública mostra a tabela inteira, para quem ainda não entrou saber em que
+  categoria cairia. Em inscrição nova, a individual vem marcada quando só uma
+  categoria serve.
 - **A migração que trocou o valor da categoria pela isenção preserva o que já
   existia**: categoria de valor zero virou isenta, e competição sem valor herdou
   o maior valor das suas categorias, antes de a coluna antiga sair.
-- **Nome de categoria é único dentro da competição** — duas "Adulto" na mesma
-  tabela tornariam a lista de inscritos ambígua.
+- **Nome de categoria é único dentro da disputa** — duas "Adulto" individuais
+  tornariam a lista de inscritos ambígua. "Adulto" individual e "Adulto" por
+  equipes convivem.
+
+Reestruturação das categorias por tipo, pedida pela diretoria depois da 7.3:
+
+- **Categorias separadas por disputa**, em vez de uma categoria que valia para os
+  dois modos. As faixas de uma equipe costumam diferir das do individual, e a
+  planilha da CBK tem uma categoria para cada disputa.
+- **O tipo da categoria não muda depois de criada**: quem se inscreveu nela se
+  inscreveu naquela disputa. Para trocar, remove-se e cria-se outra.
+- **A migração converteu o que existia**: cada categoria antiga virou duas, uma
+  de cada tipo, com as mesmas faixas; quem competia no individual ficou na
+  original e quem competia em equipe, na gêmea.
+- **Quando as categorias escolhidas misturam isentas e pagas, paga-se.** A
+  participação é uma só por competição, e só é gratuita se todas forem isentas.
 
 Decisões da parte 7.3, tomadas na implementação:
 

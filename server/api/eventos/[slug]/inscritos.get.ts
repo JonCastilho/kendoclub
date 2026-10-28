@@ -59,7 +59,8 @@ export default defineEventHandler(async (event): Promise<InscritosDoEvento> => {
       .filter(([subeventoId, participacao]) => {
         const subevento = subeventos.find(s => s.id === subeventoId)!
         const servem = categoriasCompativeis(subevento.categorias, competidorNa(inscricao.praticante, subevento))
-        return !servem.some(c => c.id === participacao.categoriaId)
+        return [participacao.categoriaIndividualId, participacao.categoriaEquipeId]
+          .some(id => id !== null && !servem.some(c => c.id === id))
       })
       .map(([subeventoId]) => subeventoId)
 

@@ -1,6 +1,6 @@
 import type { Grau, Prisma } from '@prisma/client'
 import { interpretarValor } from '~~/shared/dinheiro'
-import { type Competidor, categoriasCompativeis, idadeNoAno } from '~~/shared/competicao'
+import { type Competidor, categoriasCompativeis, idadeNoAno, participacaoIsenta } from '~~/shared/competicao'
 import { avisoDeCarencia, opcoesDeExame, textoDoAviso } from '~~/shared/exame'
 import { ROTULO_DO_SHOGO, type Shogo, ordemDoGrau } from '~~/shared/graduacao'
 import {
@@ -146,17 +146,19 @@ export const camposDoSubevento = {
   modalidade: { select: { id: true, nome: true, kyuInicial: true } },
   _count: { select: { inscricoes: true } },
   categorias: {
-    orderBy: { criadoEm: 'asc' },
+    // Individual antes de equipe (a ordem do enum); dentro de cada disputa, a de cadastro.
+    orderBy: [{ tipo: 'asc' }, { criadoEm: 'asc' }],
     select: {
       id: true,
       nome: true,
+      tipo: true,
       sexo: true,
       idadeMinima: true,
       idadeMaxima: true,
       grauMinimo: true,
       grauMaximo: true,
       isenta: true,
-      _count: { select: { inscricoes: true } },
+      _count: { select: { inscricoesIndividuais: true, inscricoesDeEquipe: true } },
     },
   },
   // Sem orderBy no grau: a ordem do enum no banco não é a da escala. Ordena-se
@@ -182,13 +184,15 @@ export function subeventoDetalhado(subevento: SubeventoDoBanco): SubeventoDetalh
     categorias: subevento.categorias.map(c => ({
       id: c.id,
       nome: c.nome,
+      tipo: c.tipo,
       sexo: c.sexo,
       idadeMinima: c.idadeMinima,
       idadeMaxima: c.idadeMaxima,
       grauMinimo: c.grauMinimo,
       grauMaximo: c.grauMaximo,
       isenta: c.isenta,
-      inscritos: c._count.inscricoes,
+      // Cada categoria é de um tipo só, então só uma das contagens é diferente de zero.
+      inscritos: c._count.inscricoesIndividuais + c._count.inscricoesDeEquipe,
     })),
     graduacoes: [...subevento.graduacoes]
       .sort((a, b) => ordemDoGrau(a.grau) - ordemDoGrau(b.grau))
@@ -340,9 +344,8 @@ type InscricaoDoBanco = {
   alojamento: boolean
   subeventos: Array<{
     subeventoId: string
-    categoriaId: string | null
-    individual: boolean | null
-    equipe: boolean | null
+    categoriaIndividualId: string | null
+    categoriaEquipeId: string | null
     grauPretendido: Grau | null
     shogoPretendido: Shogo | null
   }>
@@ -353,7 +356,7 @@ type InscricaoDoBanco = {
 export const camposDaInscricao = {
   alojamento: true,
   subeventos: {
-    select: { subeventoId: true, categoriaId: true, individual: true, equipe: true, grauPretendido: true,
+    select: { subeventoId: true, categoriaIndividualId: true, categoriaEquipeId: true, grauPretendido: true,
       shogoPretendido: true },
   },
   obentos: { select: { dia: true, quantidade: true } },
@@ -381,14 +384,15 @@ export function inscricaoComTotal(
     const subevento = subeventos.find(s => s.id === escolhido.subeventoId)
     if (!subevento) continue
 
-    if (escolhido.categoriaId) {
+    if (escolhido.categoriaIndividualId || escolhido.categoriaEquipeId) {
       competicoes[subevento.id] = {
-        categoriaId: escolhido.categoriaId,
-        individual: Boolean(escolhido.individual),
-        equipe: Boolean(escolhido.equipe),
+        categoriaIndividualId: escolhido.categoriaIndividualId,
+        categoriaEquipeId: escolhido.categoriaEquipeId,
       }
-      const isenta = subevento.categorias.find(c => c.id === escolhido.categoriaId)?.isenta
-      valores.push(isenta ? 0 : subevento.valor)
+      const escolhidas = [escolhido.categoriaIndividualId, escolhido.categoriaEquipeId]
+        .filter(id => id !== null)
+        .map(id => subevento.categorias.find(c => c.id === id))
+      valores.push(participacaoIsenta(escolhidas) ? 0 : subevento.valor)
     }
     else if (escolhido.grauPretendido || escolhido.shogoPretendido) {
       const { grauPretendido: grau, shogoPretendido: shogo } = escolhido
