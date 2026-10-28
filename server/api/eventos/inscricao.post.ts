@@ -172,6 +172,9 @@ export default defineEventHandler(async (event) => {
       const dados = {
         categoriaIndividualId: participacao?.categoriaIndividualId ?? null,
         categoriaEquipeId: participacao?.categoriaEquipeId ?? null,
+        // A posição na equipe é da diretoria; só se apaga quando a pessoa sai
+        // da disputa por equipes. O nome no zekken fica.
+        ...(!participacao?.categoriaEquipeId && { posicaoNaEquipe: null }),
         grauPretendido: exames[subeventoId]?.grau ?? null,
         shogoPretendido: exames[subeventoId]?.shogo ?? null,
       }

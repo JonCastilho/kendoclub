@@ -38,7 +38,7 @@ export default defineEventHandler(async (event) => {
       where: { categoriaIndividualId: id }, data: { categoriaIndividualId: null },
     })
     await tx.inscricaoSubevento.updateMany({
-      where: { categoriaEquipeId: id }, data: { categoriaEquipeId: null },
+      where: { categoriaEquipeId: id }, data: { categoriaEquipeId: null, posicaoNaEquipe: null },
     })
     // Quem ficou sem categoria em qualquer disputa não compete mais.
     await tx.inscricaoSubevento.deleteMany({

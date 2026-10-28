@@ -123,6 +123,8 @@ InscricaoEvento       id, eventoId, praticanteId, alojamento,
                       único por (eventoId, praticanteId)
 InscricaoSubevento    id, inscricaoEventoId, subeventoId,
                       categoriaIndividualId?, categoriaEquipeId?,
+                      nomeNoZekken?, posicaoNaEquipe?
+                      (SENPO|JIHO|CHUKEN|FUKUSHO|TAISHO|AVULSO),
                       grauPretendido?, shogoPretendido?
                       único por (inscricaoEventoId, subeventoId)
 EncomendaObento       id, inscricaoEventoId, dia, quantidade
@@ -516,7 +518,8 @@ Partes da etapa, para caber em revisões de tamanho razoável:
 | 7.1 | Evento, subeventos com dias e local, alojamento, obento por dia, prazo, seminário, inscrição e desistência, lista de inscritos com filiação |
 | 7.2 | Competição: tabela de categorias, cálculo de idade e categoria |
 | 7.3 | Exame: graduações oferecidas, graduação seguinte, tabela e aviso de carência |
-| 7.4 | Fechamento: cobranças do evento e exportação para a CBK (depende dos campos da CBK) |
+| 7.4a | Dados para a CBK: tela com os dados do evento na ordem da planilha, e nome no zekken e posição na equipe anotados pela diretoria |
+| 7.4b | Fechamento das inscrições: cobrança do evento e e-mail com o Pix |
 | depois | Perguntas extras do evento |
 
 Decisões da parte 7.1, tomadas na implementação:
@@ -589,6 +592,35 @@ Reestruturação das categorias por tipo, pedida pela diretoria depois da 7.3:
 - **Quando as categorias escolhidas misturam isentas e pagas, paga-se.** A
   participação é uma só por competição, e só é gratuita se todas forem isentas.
 
+Decisões da parte 7.4a, tomadas com a diretoria:
+
+- **Não há exportação em arquivo: há uma tela.** Quem inscreve o clube na CBK
+  usa a tela para preencher a planilha da CBK. A tela fica disponível para novas
+  consultas e é calculada na hora, a partir das inscrições, e não guardada:
+  mostra a inscrição como ela está, e uma pessoa incluída depois aparece.
+- **Só a diretoria vê e grava.** A tela traz o que a planilha pede, na ordem
+  dela: nome, seminários por dia (S/N), exame (S/N), competição individual
+  (S/N), categoria individual, equipe (N ou a posição na primeira luta),
+  categoria por equipes, nome no zekken/nafuda e obentos por dia. Acrescentei
+  ao final de cada exame uma coluna com o que a pessoa presta, porque o sistema
+  já tem o dado.
+- **O nome no zekken/nafuda e a posição na primeira luta são anotados pela
+  diretoria na própria tela, e não por quem se inscreve.** É a diretoria que
+  sabe quem compõe cada equipe. **Avulso** é uma posição, para quem compete por
+  equipes sem que haja integrantes para formar um time; a tela resume quantos
+  competem por equipes e quantos são avulsos, para ajudar a decidir.
+- **A posição só existe para quem compete por equipes.** Sair da disputa por
+  equipes — por desistência, por trocar a inscrição ou porque a categoria de
+  equipe foi removida — apaga a posição; o nome no zekken fica, porque vale para
+  a pessoa e não para a disputa. Mudar a inscrição por outro motivo não apaga o
+  que a diretoria anotou.
+- **A gravação é toda ou nenhuma**: um erro em qualquer linha impede salvar as
+  demais, e a mensagem diz de quem é. Campo vazio apaga; campo que não veio no
+  formulário não muda. O nome no zekken tem no máximo 40 caracteres.
+- **Com mais de um subevento do mesmo tipo** (competição de kendo e de iaido,
+  por exemplo), os rótulos das colunas trazem a modalidade; com um só, ficam
+  como na planilha.
+
 Decisões da parte 7.3, tomadas na implementação:
 
 - **Exame sem graduação oferecida não é publicado**, pelo mesmo motivo da
@@ -628,7 +660,7 @@ Decisões da parte 7.3, tomadas na implementação:
   de edição, como pedido pela diretoria. Publicar exige valor em seminário e
   competição, e banca — de dan ou de shogo — no exame.
 
-**Concluídas:** etapas 0, 1, 2, 3, 4, 5 e 6 (setembro de 2026), e as partes 7.1, 7.2 e 7.3.
+**Concluídas:** etapas 0, 1, 2, 3, 4, 5 e 6 (setembro de 2026), e as partes 7.1, 7.2, 7.3 e 7.4a.
 
 Decisões da etapa 6:
 

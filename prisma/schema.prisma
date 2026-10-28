@@ -126,6 +126,17 @@ enum TipoCategoria {
   EQUIPE
 }
 
+/// Posição na primeira luta da disputa por equipes. Avulso é quem compete por
+/// equipes sem que haja integrantes para formar um time.
+enum PosicaoNaEquipe {
+  SENPO
+  JIHO
+  CHUKEN
+  FUKUSHO
+  TAISHO
+  AVULSO
+}
+
 /// Misto aceita os dois sexos do cadastro.
 enum SexoCategoria {
   MASCULINO
@@ -671,6 +682,12 @@ model InscricaoSubevento {
   categoriaIndividualId String?
   categoriaEquipe       CategoriaCompeticao? @relation("CategoriaDeEquipe", fields: [categoriaEquipeId], references: [id], onDelete: Restrict)
   categoriaEquipeId     String?
+
+  /// Só em competição, preenchidos pela diretoria na tela dos dados da CBK, e
+  /// não por quem se inscreve. A posição só existe para quem compete por
+  /// equipes.
+  nomeNoZekken    String?
+  posicaoNaEquipe PosicaoNaEquipe?
 
   /// Só em exame: a graduação e o shogo prestados, calculados do cadastro na
   /// inscrição. Dá para prestar os dois no mesmo exame.

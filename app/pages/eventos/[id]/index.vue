@@ -90,6 +90,9 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
           <ULink :to="`/eventos/${evento.id}/inscritos`">
             Inscritos
           </ULink>
+          <ULink :to="`/eventos/${evento.id}/cbk`">
+            Dados para a CBK
+          </ULink>
         </div>
       </div>
 

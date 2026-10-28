@@ -254,6 +254,9 @@ const naoFiliados = computed(() => (data.value?.inscritos ?? []).filter(i => !i.
       <ULink :to="`/agenda/${data.evento.slug}`">
         Ver na agenda
       </ULink>
+      <ULink :to="`/eventos/${data.evento.id}/cbk`">
+        Dados para a CBK
+      </ULink>
     </div>
   </div>
 </template>
