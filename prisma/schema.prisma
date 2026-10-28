@@ -668,8 +668,23 @@ model InscricaoEvento {
 
   subeventos InscricaoSubevento[]
   obentos    EncomendaObento[]
+  cobranca   CobrancaEvento?
 
   @@unique([eventoId, praticanteId])
+}
+
+/// O que uma pessoa deve pelo evento, fixado quando ela gera o Pix: o valor e o
+/// que ele cobre. Uma por inscrição — gerar de novo, depois de mudar a
+/// inscrição, substitui a anterior. Se a inscrição muda e o total ou os itens
+/// deixam de bater com os guardados aqui, o Pix está desatualizado.
+model CobrancaEvento {
+  id       String   @id @default(cuid())
+  valor    Decimal  @db.Decimal(10, 2)
+  itens    String[]
+  geradaEm DateTime @default(now())
+
+  inscricaoEvento   InscricaoEvento @relation(fields: [inscricaoEventoId], references: [id], onDelete: Cascade)
+  inscricaoEventoId String          @unique
 }
 
 model InscricaoSubevento {
@@ -726,6 +741,8 @@ model ConfiguracaoClube {
   emailContato String?
   chavePix     String?
   titularPix   String?
+  /// Cidade do titular: o padrão do QR code do Pix exige.
+  cidadePix    String?
 
   /// Mensalidade do clube: valor único para todos. Cada mensalidade gerada
   /// guarda o valor aplicado, então reajuste não reescreve o passado.

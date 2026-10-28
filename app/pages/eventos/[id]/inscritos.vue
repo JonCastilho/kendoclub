@@ -152,6 +152,12 @@ const naoFiliados = computed(() => (data.value?.inscritos ?? []).filter(i => !i.
             </th>
             <th
               scope="col"
+              class="py-2 pr-4"
+            >
+              Pix
+            </th>
+            <th
+              scope="col"
               class="py-2 text-right"
             >
               Total
@@ -233,6 +239,32 @@ const naoFiliados = computed(() => (data.value?.inscritos ?? []).filter(i => !i.
               class="py-2 pr-4"
             >
               {{ inscrito.obentos[dia] ?? '—' }}
+            </td>
+            <td class="py-2 pr-4">
+              <template v-if="inscrito.total <= 0">
+                —
+              </template>
+              <UBadge
+                v-else-if="!inscrito.cobranca"
+                color="neutral"
+                variant="subtle"
+              >
+                sem Pix
+              </UBadge>
+              <UBadge
+                v-else-if="!inscrito.cobranca.atualizada"
+                color="warning"
+                variant="subtle"
+              >
+                desatualizado
+              </UBadge>
+              <UBadge
+                v-else
+                color="success"
+                variant="subtle"
+              >
+                gerado
+              </UBadge>
             </td>
             <td class="py-2 text-right">
               {{ formatarReais(inscrito.total) }}

@@ -33,6 +33,7 @@ export default defineEventHandler(async (event) => {
     emailContato: opcional(corpo.emailContato),
     chavePix: opcional(corpo.chavePix),
     titularPix: opcional(corpo.titularPix),
+    cidadePix: opcional(corpo.cidadePix),
     valorMensalidade: valorMensalidade!,
     valorAluguelPadrao: valorAluguelPadrao!,
     diaVencimento,

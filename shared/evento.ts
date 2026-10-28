@@ -377,6 +377,16 @@ export interface ParticipacaoNaCompeticao {
   categoriaEquipeId: string | null
 }
 
+/** O Pix gerado de uma inscrição. `pix` é nulo se a inscrição mudou depois. */
+export interface CobrancaDoEvento {
+  valor: number
+  itens: string[]
+  geradaEm: string
+  /** Falso quando a inscrição mudou depois de o Pix ser gerado. */
+  atualizada: boolean
+  pix: { copiaECola: string, qrCode: string, mensagem: string } | null
+}
+
 export type InscricaoDetalhada = InscricaoNormalizada & {
   /** Subevento de competição → como participa. */
   competicoes: Record<string, ParticipacaoNaCompeticao>
@@ -421,6 +431,10 @@ export interface EventoDetalhado {
   inscrevendo: { praticanteId: string, nome: string, proprio: boolean } | null
   podeInscrever: boolean
   inscricao: InscricaoDetalhada | null
+  /** O Pix gerado, se houver. */
+  cobranca: CobrancaDoEvento | null
+  /** O clube configurou chave, titular e cidade do Pix. */
+  pixDisponivel: boolean
   /** Subevento de competição → idade, grau e categorias que servem. */
   competidor: Record<string, SituacaoNaCompeticao>
   /** Subevento de exame → graduação atual e o que pode prestar. */
@@ -443,6 +457,8 @@ export interface InscritoNoEvento {
   foraDaCategoria: string[]
   /** Subevento de exame → aviso de carência, se houver. */
   avisosDeCarencia: Record<string, string>
+  /** O Pix gerado pela pessoa, se houver, e se ainda bate com a inscrição. */
+  cobranca: { valor: number, atualizada: boolean } | null
   total: number
 }
 

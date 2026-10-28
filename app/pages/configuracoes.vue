@@ -100,12 +100,18 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
           nome="chavePix"
           rotulo="Chave Pix"
           :valor="clube.chavePix"
-          ajuda="Aparece para o praticante pagar a mensalidade."
+          ajuda="Aparece para o praticante pagar a mensalidade e gera o QR code do Pix dos eventos."
         />
         <CampoTexto
           nome="titularPix"
           rotulo="Titular da chave"
           :valor="clube.titularPix"
+        />
+        <CampoTexto
+          nome="cidadePix"
+          rotulo="Cidade do titular"
+          :valor="clube.cidadePix"
+          ajuda="Exigida pelo padrão do QR code do Pix."
         />
         <CampoTexto
           nome="emailContato"

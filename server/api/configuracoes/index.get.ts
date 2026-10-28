@@ -14,6 +14,7 @@ export default defineEventHandler(async (event) => {
     emailContato: null,
     chavePix: null,
     titularPix: null,
+    cidadePix: null,
     valorMensalidade: 0,
     diaVencimento: 10,
     valorAluguelPadrao: 0,

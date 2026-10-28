@@ -129,9 +129,10 @@ InscricaoSubevento    id, inscricaoEventoId, subeventoId,
                       único por (inscricaoEventoId, subeventoId)
 EncomendaObento       id, inscricaoEventoId, dia, quantidade
                       único por (inscricaoEventoId, dia)
+CobrancaEvento        id, inscricaoEventoId (único), valor, itens, geradaEm
 CarenciaGraduacao     id, modalidadeId, grau? (1º kyu ou dan) ou shogo?, mesesMinimos
                       único por (modalidadeId, grau)
-ConfiguracaoClube     nomeClube, logo?, chavePix, titularPix, emailContato,
+ConfiguracaoClube     nomeClube, logo?, chavePix, titularPix, cidadePix, emailContato,
                       valorMensalidade, diaVencimento, valorAluguelPadrao,
                       fusoHorario (America/Sao_Paulo), corPrimaria
 ```
@@ -503,11 +504,11 @@ Exame:
 
 Dinheiro:
 
-- **A cobrança só nasce no fechamento das inscrições**, gerada pela diretoria,
-  com a soma dos valores de cada praticante naquele evento (subeventos, mais o
-  alojamento se pediu, mais os obentos encomendados) — um retrato da lista
-  naquele momento, como a mensalidade. Enquanto o prazo está aberto, inscrever e
-  desistir não mexem em dinheiro.
+- **A cobrança nasce quando a pessoa gera o Pix**, e não no fechamento das
+  inscrições. Revisto com a diretoria na 7.4b: quem termina de preencher a
+  inscrição clica em "Gerar PIX" e paga na hora. A cobrança é a soma dos valores
+  daquela pessoa no evento (subeventos, mais o alojamento se pediu, mais os
+  obentos encomendados) — um retrato daquele momento, como a mensalidade.
 - Remoção depois de pago não devolve nada sozinha: fica registrada e a diretoria
   resolve.
 
@@ -519,7 +520,9 @@ Partes da etapa, para caber em revisões de tamanho razoável:
 | 7.2 | Competição: tabela de categorias, cálculo de idade e categoria |
 | 7.3 | Exame: graduações oferecidas, graduação seguinte, tabela e aviso de carência |
 | 7.4a | Dados para a CBK: tela com os dados do evento na ordem da planilha, e nome no zekken e posição na equipe anotados pela diretoria |
-| 7.4b | Fechamento das inscrições: cobrança do evento e e-mail com o Pix |
+| 7.4b-1 | Gerar o Pix da inscrição: cobrança do evento, QR code e "copia e cola" |
+| 7.4b-2 | Comprovante, declaração de pagamento e baixa pela diretoria |
+| 7.4b-3 | Lembrete por e-mail a quem ainda não pagou |
 | depois | Perguntas extras do evento |
 
 Decisões da parte 7.1, tomadas na implementação:
@@ -591,6 +594,33 @@ Reestruturação das categorias por tipo, pedida pela diretoria depois da 7.3:
   original e quem competia em equipe, na gêmea.
 - **Quando as categorias escolhidas misturam isentas e pagas, paga-se.** A
   participação é uma só por competição, e só é gratuita se todas forem isentas.
+
+Decisões da parte 7.4b-1, tomadas com a diretoria:
+
+- **Quem se inscreve gera o próprio Pix**, depois de salvar a inscrição, e paga
+  por ele. Não há botão de fechar inscrições para gerar cobranças. Gerar vale
+  também depois do prazo — quem se inscreveu ainda precisa pagar —, e a diretoria
+  pode gerar o Pix de outra pessoa, que é o caso de quem não usa o sistema.
+- **O valor vem da inscrição gravada, e nunca do formulário.** A cobrança guarda
+  o total e os itens do momento (`CobrancaEvento`, uma por inscrição). Mudar a
+  inscrição não reescreve o que foi gerado: se o total ou os itens deixam de
+  bater, o Pix aparece como desatualizado, sem QR code, e a tela pede um novo.
+  Quem muda a inscrição por um motivo que não altera total nem itens mantém o
+  Pix.
+- **Pix estático, "copia e cola" e QR code.** Usa a chave e o titular que já
+  estão em Configurações, mais a **cidade do titular**, que o padrão exige. Não
+  há integração com banco: a diretoria confere pelo extrato e pelo comprovante
+  (7.4b-2). Quem tem total zero não precisa de Pix.
+- **A mensagem diz quem paga e o que paga**: "Jonas Castilho - Campeonato
+  Fukuhaku: competicao, exame, obento (2)". O padrão divide 99 caracteres entre
+  a chave e a mensagem (62 com chave CPF, 37 com chave aleatória), então a
+  mensagem cede, nesta ordem, os nomes do meio, parte do nome do evento, o evento
+  inteiro e só por último os itens. Sai em ASCII, sem acento: banco que recebe
+  caractere fora do padrão recusa o código.
+- **A biblioteca de QR code é a `qrcode`**, de licença MIT, que já vinha de
+  dependência do Nuxt UI.
+- A lista de inscritos mostra, por pessoa, se o Pix foi gerado, se está
+  desatualizado ou se ainda não foi gerado.
 
 Decisões da parte 7.4a, tomadas com a diretoria:
 

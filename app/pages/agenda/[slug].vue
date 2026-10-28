@@ -110,6 +110,16 @@ function periodo(inicio: string | null, fim: string | null) {
 }
 
 const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-2'
+
+const copiado = ref(false)
+
+async function copiarPix() {
+  const codigo = evento.value?.cobranca?.pix?.copiaECola
+  if (!codigo) return
+  await navigator.clipboard.writeText(codigo)
+  copiado.value = true
+  setTimeout(() => (copiado.value = false), 3000)
+}
 </script>
 
 <template>
@@ -574,10 +584,125 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
             v-if="evento.inscricao"
             class="text-sm"
           >
-            Total estimado: <strong>{{ formatarReais(evento.inscricao.total) }}</strong>.
-            A cobrança é gerada quando as inscrições fecham.
+            Total: <strong>{{ formatarReais(evento.inscricao.total) }}</strong>.
+            Para pagar, gere o Pix logo abaixo.
           </p>
         </form>
+
+        <!-- O Pix é da inscrição salva: quem muda o formulário e não salva
+             ainda não mudou o que vai pagar. -->
+        <div
+          v-if="evento.inscricao"
+          id="pix"
+          class="mt-8 border-t border-default pt-6"
+        >
+          <h3 class="font-medium">
+            Pagamento
+          </h3>
+
+          <p
+            v-if="evento.inscricao.total <= 0"
+            class="mt-2 text-sm text-muted"
+          >
+            Esta inscrição não tem nada a pagar.
+          </p>
+
+          <template v-else>
+            <p class="mt-2 text-sm text-muted">
+              O Pix cobre a inscrição salva. Se você mudar a inscrição, gere um
+              novo.
+            </p>
+
+            <div
+              v-if="evento.cobranca?.pix"
+              class="mt-4 flex flex-col gap-4 sm:flex-row"
+            >
+              <img
+                :src="evento.cobranca.pix.qrCode"
+                :alt="`QR code do Pix de ${formatarReais(evento.cobranca.valor)}`"
+                width="224"
+                height="224"
+                class="rounded-md border border-default bg-white"
+              >
+              <div class="flex flex-col gap-2 text-sm min-w-0">
+                <p>
+                  Valor: <strong>{{ formatarReais(evento.cobranca.valor) }}</strong>
+                  — {{ evento.cobranca.itens.join(', ') }}
+                </p>
+                <p class="text-muted">
+                  Mensagem do Pix: {{ evento.cobranca.pix.mensagem }}
+                </p>
+                <label
+                  for="pix-copia-e-cola"
+                  class="font-medium"
+                >Pix copia e cola</label>
+                <textarea
+                  id="pix-copia-e-cola"
+                  readonly
+                  rows="4"
+                  :class="`${classeCampo} font-mono text-xs`"
+                  :value="evento.cobranca.pix.copiaECola"
+                />
+                <div class="flex items-center gap-3">
+                  <button
+                    type="button"
+                    class="rounded-md border border-default px-3 py-1"
+                    @click="copiarPix"
+                  >
+                    Copiar código
+                  </button>
+                  <span
+                    v-if="copiado"
+                    role="status"
+                    class="text-success"
+                  >Copiado.</span>
+                </div>
+              </div>
+            </div>
+
+            <p
+              v-else-if="evento.cobranca"
+              class="mt-4 text-sm text-warning"
+            >
+              A inscrição mudou depois que o Pix de
+              {{ formatarReais(evento.cobranca.valor) }} foi gerado. Gere um novo,
+              com {{ formatarReais(evento.inscricao.total) }}.
+            </p>
+
+            <form
+              v-if="!evento.cobranca?.pix && evento.pixDisponivel"
+              method="post"
+              action="/api/eventos/pix"
+              class="mt-4"
+            >
+              <input
+                type="hidden"
+                name="eventoId"
+                :value="evento.id"
+              >
+              <input
+                v-if="!evento.inscrevendo.proprio"
+                type="hidden"
+                name="praticanteId"
+                :value="evento.inscrevendo.praticanteId"
+              >
+              <button
+                type="submit"
+                class="rounded-md bg-primary text-inverted font-medium px-4 py-2"
+              >
+                Gerar PIX
+              </button>
+            </form>
+
+            <p
+              v-else-if="!evento.pixDisponivel"
+              class="mt-4 text-sm text-warning"
+            >
+              O clube ainda não configurou o Pix.
+              {{ evento.podeEditar ? 'Preencha chave, titular e cidade em Configurações.' : 'Avise a diretoria.' }}
+            </p>
+          </template>
+        </div>
       </template>
     </section>
 

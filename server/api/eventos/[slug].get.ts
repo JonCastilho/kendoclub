@@ -1,4 +1,6 @@
+import { cobrancaAtualizada, itensDaInscricao } from '~~/shared/cobrancaEvento'
 import {
+  type CobrancaDoEvento,
   type EventoDetalhado,
   diaDe,
   diasDoEvento,
@@ -53,9 +55,29 @@ export default defineEventHandler(async (event): Promise<EventoDetalhado> => {
   const inscricao = praticante
     ? await prisma.inscricaoEvento.findUnique({
         where: { eventoId_praticanteId: { eventoId: evento.id, praticanteId: praticante.id } },
-        select: camposDaInscricao,
+        select: {
+          ...camposDaInscricao,
+          cobranca: { select: { valor: true, itens: true, geradaEm: true } },
+        },
       })
     : null
+
+  const detalhada = inscricao ? inscricaoComTotal(inscricao, evento, subeventos) : null
+
+  // O Pix vale enquanto a inscrição tem o mesmo total e os mesmos itens de
+  // quando ele foi gerado; depois disso a tela pede um novo.
+  let cobranca: CobrancaDoEvento | null = null
+  if (inscricao?.cobranca && detalhada && praticante) {
+    const gerada = { valor: Number(inscricao.cobranca.valor), itens: inscricao.cobranca.itens }
+    const atualizada = cobrancaAtualizada(gerada, { total: detalhada.total, itens: itensDaInscricao(detalhada, subeventos) })
+    cobranca = {
+      ...gerada,
+      geradaEm: inscricao.cobranca.geradaEm.toISOString(),
+      atualizada,
+      pix: atualizada ? await pixDaCobranca(gerada, praticante.nomeCompleto, evento.titulo) : null,
+    }
+  }
+  const pixDisponivel = inscricao ? (await problemasDaConfiguracaoDoPix()).length === 0 : false
 
   const obentosPorDia: Record<string, number> = {}
   if (leitor.ehDiretoria) {
@@ -100,7 +122,9 @@ export default defineEventHandler(async (event): Promise<EventoDetalhado> => {
       : null,
     // O prazo é a única regra que a diretoria dispensa.
     podeInscrever: Boolean(praticante) && (leitor.ehDiretoria || prazoAberto),
-    inscricao: inscricao ? inscricaoComTotal(inscricao, evento, subeventos) : null,
+    inscricao: detalhada,
+    cobranca,
+    pixDisponivel,
     competidor: praticante ? situacaoNasCompeticoes(praticante, subeventos) : {},
     examinando: praticante ? situacaoNosExames(praticante, subeventos) : {},
   }
