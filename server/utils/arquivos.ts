@@ -11,12 +11,24 @@ import { extensaoDoTipo, nomeDeCapaValido, type TipoImagem } from '~~/shared/ima
  * copiar junto do backup do banco. Em troca, quem hospedar precisa lembrar dela
  * — está documentado no README, junto da variável NUXT_UPLOAD_DIR.
  */
-export function diretorioDeCapas(): string {
+function raizDosUploads(): string {
   // O String() é por conta da tipagem do runtimeConfig, que chega aqui como
   // genérica; em execução o valor já é o texto vindo de NUXT_UPLOAD_DIR.
   const configurado = String(useRuntimeConfig().uploadDir ?? '') || './uploads'
-  const raiz = isAbsolute(configurado) ? configurado : resolve(process.cwd(), configurado)
-  return join(raiz, 'capas')
+  return isAbsolute(configurado) ? configurado : resolve(process.cwd(), configurado)
+}
+
+export function diretorioDeCapas(): string {
+  return join(raizDosUploads(), 'capas')
+}
+
+/**
+ * Comprovantes de pagamento: a mesma pasta de uploads, em subpasta própria. O
+ * arquivo vive só até a diretoria analisar — depois o banco guarda a baixa, e a
+ * imagem, que mostra nome, banco e às vezes saldo, é apagada.
+ */
+export function diretorioDeComprovantes(): string {
+  return join(raizDosUploads(), 'comprovantes')
 }
 
 /**
@@ -57,5 +69,39 @@ export async function apagarCapa(nome: string | null): Promise<void> {
   catch {
     // Já não estava lá, ou o disco não deixou. Nos dois casos o registro no
     // banco já foi limpo, que é o que decide o que a página mostra.
+  }
+}
+
+export async function guardarComprovante(bytes: Uint8Array, tipo: TipoImagem): Promise<string> {
+  const nome = `${randomBytes(16).toString('hex')}.${extensaoDoTipo(tipo)}`
+  const diretorio = diretorioDeComprovantes()
+
+  await mkdir(diretorio, { recursive: true })
+  await writeFile(join(diretorio, nome), bytes)
+
+  return nome
+}
+
+/** Devolve os bytes, ou nulo se o arquivo sumiu do disco. */
+export async function lerComprovante(nome: string | null): Promise<Buffer | null> {
+  if (!nome || !nomeDeCapaValido(nome)) return null
+
+  try {
+    return await readFile(join(diretorioDeComprovantes(), nome))
+  }
+  catch {
+    return null
+  }
+}
+
+/** Apaga em silêncio, como a capa: o registro no banco é o que decide o que a tela mostra. */
+export async function apagarComprovante(nome: string | null): Promise<void> {
+  if (!nome || !nomeDeCapaValido(nome)) return
+
+  try {
+    await unlink(join(diretorioDeComprovantes(), nome))
+  }
+  catch {
+    // Já não estava lá, ou o disco não deixou.
   }
 }

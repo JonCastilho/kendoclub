@@ -1,4 +1,9 @@
-import { cobrancaAtualizada, itensDaInscricao } from '~~/shared/cobrancaEvento'
+import {
+  cobrancaAtualizada,
+  inscricaoTravada,
+  itensDaInscricao,
+  situacaoDaCobranca,
+} from '~~/shared/cobrancaEvento'
 import {
   type CobrancaDoEvento,
   type EventoDetalhado,
@@ -38,7 +43,8 @@ export default defineEventHandler(async (event): Promise<EventoDetalhado> => {
 
   const subeventos = evento.subeventos.map(subeventoDetalhado)
   const prazo = diaDe(evento.prazoInscricao)
-  const prazoAberto = inscricoesAbertas(prazo, hojeNoFuso(await fusoDoClube()))
+  const fuso = await fusoDoClube()
+  const prazoAberto = inscricoesAbertas(prazo, hojeNoFuso(fuso))
 
   const pedido = getQuery(event).praticante
   const praticanteId = leitor.ehDiretoria && typeof pedido === 'string' && pedido
@@ -57,7 +63,7 @@ export default defineEventHandler(async (event): Promise<EventoDetalhado> => {
         where: { eventoId_praticanteId: { eventoId: evento.id, praticanteId: praticante.id } },
         select: {
           ...camposDaInscricao,
-          cobranca: { select: { valor: true, itens: true, geradaEm: true } },
+          cobranca: true,
         },
       })
     : null
@@ -70,13 +76,24 @@ export default defineEventHandler(async (event): Promise<EventoDetalhado> => {
   if (inscricao?.cobranca && detalhada && praticante) {
     const gerada = { valor: Number(inscricao.cobranca.valor), itens: inscricao.cobranca.itens }
     const atualizada = cobrancaAtualizada(gerada, { total: detalhada.total, itens: itensDaInscricao(detalhada, subeventos) })
+    const situacao = situacaoDaCobranca(inscricao.cobranca)
     cobranca = {
+      id: inscricao.cobranca.id,
       ...gerada,
       geradaEm: inscricao.cobranca.geradaEm.toISOString(),
+      situacao,
       atualizada,
-      pix: atualizada ? await pixDaCobranca(gerada, praticante.nomeCompleto, evento.titulo) : null,
+      declaradaEm: inscricao.cobranca.declaradaEm?.toISOString() ?? null,
+      pagaEm: situacao === 'PAGA' ? inscricao.cobranca.analisadaEm?.toISOString() ?? null : null,
+      motivoRecusa: inscricao.cobranca.aceita === false ? inscricao.cobranca.motivoRecusa : null,
+      temComprovante: Boolean(inscricao.cobranca.comprovante),
+      // O QR só serve a quem ainda vai pagar.
+      pix: situacao === 'GERADA' && atualizada
+        ? await pixDaCobranca(gerada, praticante.nomeCompleto, evento.titulo)
+        : null,
     }
   }
+  const travada = inscricaoTravada(cobranca?.situacao ?? null)
   const pixDisponivel = inscricao ? (await problemasDaConfiguracaoDoPix()).length === 0 : false
 
   const obentosPorDia: Record<string, number> = {}
@@ -120,8 +137,11 @@ export default defineEventHandler(async (event): Promise<EventoDetalhado> => {
           proprio: praticante.id === leitor.usuario?.praticanteId,
         }
       : null,
-    // O prazo é a única regra que a diretoria dispensa.
-    podeInscrever: Boolean(praticante) && (leitor.ehDiretoria || prazoAberto),
+    // O prazo é a única regra que a diretoria dispensa — e a trava do
+    // pagamento declarado, que existe para quem se inscreveu.
+    podeInscrever: Boolean(praticante) && (leitor.ehDiretoria || (prazoAberto && !travada)),
+    inscricaoTravada: travada,
+    fuso,
     inscricao: detalhada,
     cobranca,
     pixDisponivel,

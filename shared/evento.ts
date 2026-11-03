@@ -377,13 +377,27 @@ export interface ParticipacaoNaCompeticao {
   categoriaEquipeId: string | null
 }
 
+/**
+ * Onde a cobrança do evento está: o Pix foi gerado; a pessoa declarou o
+ * pagamento e a diretoria ainda não analisou; ou a diretoria confirmou.
+ */
+export type SituacaoDaCobranca = 'GERADA' | 'EM_ANALISE' | 'PAGA'
+
 /** O Pix gerado de uma inscrição. `pix` é nulo se a inscrição mudou depois. */
 export interface CobrancaDoEvento {
+  id: string
   valor: number
   itens: string[]
   geradaEm: string
+  situacao: SituacaoDaCobranca
   /** Falso quando a inscrição mudou depois de o Pix ser gerado. */
   atualizada: boolean
+  declaradaEm: string | null
+  /** Quando a diretoria confirmou o pagamento. */
+  pagaEm: string | null
+  /** Se a diretoria recusou o último comprovante, o porquê. */
+  motivoRecusa: string | null
+  temComprovante: boolean
   pix: { copiaECola: string, qrCode: string, mensagem: string } | null
 }
 
@@ -433,8 +447,15 @@ export interface EventoDetalhado {
   inscricao: InscricaoDetalhada | null
   /** O Pix gerado, se houver. */
   cobranca: CobrancaDoEvento | null
+  /** Fuso do clube, para mostrar a hora dos comprovantes e das baixas. */
+  fuso: string
   /** O clube configurou chave, titular e cidade do Pix. */
   pixDisponivel: boolean
+  /**
+   * Com o pagamento em análise ou confirmado, só a diretoria muda a inscrição:
+   * o que foi pago deixaria de bater com o que a pessoa escolhe.
+   */
+  inscricaoTravada: boolean
   /** Subevento de competição → idade, grau e categorias que servem. */
   competidor: Record<string, SituacaoNaCompeticao>
   /** Subevento de exame → graduação atual e o que pode prestar. */
@@ -458,7 +479,7 @@ export interface InscritoNoEvento {
   /** Subevento de exame → aviso de carência, se houver. */
   avisosDeCarencia: Record<string, string>
   /** O Pix gerado pela pessoa, se houver, e se ainda bate com a inscrição. */
-  cobranca: { valor: number, atualizada: boolean } | null
+  cobranca: { valor: number, situacao: SituacaoDaCobranca, atualizada: boolean } | null
   total: number
 }
 

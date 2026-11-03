@@ -80,6 +80,10 @@ A pasta não é servida como conteúdo estático: cada imagem passa pelo mesmo
 controle de acesso da publicação a que pertence, para que a capa de uma notícia
 interna não fique aberta na internet.
 
+Os **comprovantes de pagamento** dos eventos ficam na subpasta `comprovantes`,
+da mesma pasta, e são temporários: o arquivo é apagado quando a diretoria
+aceita ou recusa o pagamento. Só o dono e a diretoria os abrem.
+
 Todas as variáveis de ambiente estão documentadas em
 [.env.example](.env.example).
 

@@ -129,7 +129,10 @@ InscricaoSubevento    id, inscricaoEventoId, subeventoId,
                       único por (inscricaoEventoId, subeventoId)
 EncomendaObento       id, inscricaoEventoId, dia, quantidade
                       único por (inscricaoEventoId, dia)
-CobrancaEvento        id, inscricaoEventoId (único), valor, itens, geradaEm
+CobrancaEvento        id, inscricaoEventoId (único), valor, itens, geradaEm,
+                      declaradaEm?, comprovante? (arquivo em disco),
+                      analisadaEm?, aceita?, motivoRecusa?,
+                      analisadaPorUsuarioId?, observacao?
 CarenciaGraduacao     id, modalidadeId, grau? (1º kyu ou dan) ou shogo?, mesesMinimos
                       único por (modalidadeId, grau)
 ConfiguracaoClube     nomeClube, logo?, chavePix, titularPix, cidadePix, emailContato,
@@ -595,6 +598,37 @@ Reestruturação das categorias por tipo, pedida pela diretoria depois da 7.3:
 - **Quando as categorias escolhidas misturam isentas e pagas, paga-se.** A
   participação é uma só por competição, e só é gratuita se todas forem isentas.
 
+Decisões da parte 7.4b-2, tomadas com a diretoria:
+
+- **Quem paga anexa o comprovante e declara**, e a diretoria confere. O
+  comprovante é **obrigatório**, em JPG, PNG ou WebP de até **2 MB** — o tipo sai
+  dos primeiros bytes do arquivo, nunca do nome nem do que o navegador declara —,
+  e só vale para um Pix que ainda bate com a inscrição. Só a própria pessoa
+  declara; para pagamento feito por quem não usa o sistema, a diretoria dá a
+  baixa.
+- **O arquivo vive só até a análise.** Fica em disco, na pasta de uploads, em
+  subpasta própria, e só o dono e a diretoria o abrem — sem cache. Aceitar,
+  recusar ou tirar a inscrição da pessoa apaga o arquivo; o que fica no banco é
+  a decisão e quem a tomou. Comprovante de Pix mostra nome, banco e às vezes
+  saldo, e o que tem valor depois é a baixa, não a imagem.
+- **A situação é derivada**, como a das mensalidades: paga se a diretoria
+  aceitou; em análise se a pessoa declarou e ninguém analisou; do contrário, só
+  gerada. Recusar devolve a cobrança a "gerada", com o motivo — obrigatório, e é
+  o que a pessoa lê —, e uma nova declaração recomeça a análise.
+- **Declarar trava a inscrição para quem a fez**, e o Pix deixa de poder ser
+  gerado de novo: o que foi pago precisa continuar batendo com o que foi
+  escolhido. Só a diretoria muda uma inscrição em análise ou paga, e a lista de
+  pagamentos mostra quando o total de hoje já não é o que foi cobrado — a
+  diferença a diretoria resolve, como já estava decidido.
+- **Dar baixa** registra pagamento feito fora do sistema, sobre um Pix em dia e
+  ainda não declarado, e carimba na observação quem deu a baixa e quando. **O
+  estorno** desfaz uma baixa errada sem apagar o histórico, também com carimbo,
+  como nas mensalidades.
+- **A tela de pagamentos** põe primeiro o que há para conferir e resume quanto
+  já foi confirmado do que se espera. Não há aviso por e-mail à diretoria
+  quando um comprovante chega: ela consulta a tela, e o lembrete aos que não
+  pagaram é a 7.4b-3.
+
 Decisões da parte 7.4b-1, tomadas com a diretoria:
 
 - **Quem se inscreve gera o próprio Pix**, depois de salvar a inscrição, e paga
@@ -690,7 +724,7 @@ Decisões da parte 7.3, tomadas na implementação:
   de edição, como pedido pela diretoria. Publicar exige valor em seminário e
   competição, e banca — de dan ou de shogo — no exame.
 
-**Concluídas:** etapas 0, 1, 2, 3, 4, 5 e 6 (setembro de 2026), e as partes 7.1, 7.2, 7.3 e 7.4a.
+**Concluídas:** etapas 0, 1, 2, 3, 4, 5 e 6 (setembro de 2026), e as partes 7.1, 7.2, 7.3, 7.4a, 7.4b-1 e 7.4b-2.
 
 Decisões da etapa 6:
 

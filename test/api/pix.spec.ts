@@ -182,7 +182,7 @@ describe('gerar o Pix', () => {
     expect(velho.cobranca).toMatchObject({ valor: 70, atualizada: false, pix: null })
 
     const lista = await ler<InscritosDoEvento>(`/api/eventos/${t.eventoId}/inscritos`, diretoria)
-    expect(lista.dados.inscritos[0]!.cobranca).toEqual({ valor: 70, atualizada: false })
+    expect(lista.dados.inscritos[0]!.cobranca).toEqual({ valor: 70, situacao: 'GERADA', atualizada: false })
 
     await gerar(t, ana)
     const novo = await detalhe(t, ana)

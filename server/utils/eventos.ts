@@ -119,10 +119,14 @@ export async function recalcularEvento(
   })
 
   // Quem tinha só obento num dia que saiu fica sem nada: inscrição vazia não
-  // existe.
-  await tx.inscricaoEvento.deleteMany({
-    where: { eventoId, subeventos: { none: {} }, obentos: { none: {} } },
+  // existe. O comprovante dela, em disco, sai junto.
+  const vazias = { eventoId, subeventos: { none: {} }, obentos: { none: {} } }
+  const comComprovante = await tx.cobrancaEvento.findMany({
+    where: { inscricaoEvento: vazias, comprovante: { not: null } },
+    select: { comprovante: true },
   })
+  await tx.inscricaoEvento.deleteMany({ where: vazias })
+  await Promise.all(comComprovante.map(c => apagarComprovante(c.comprovante)))
 }
 
 /** Endereço único a partir do título, com sufixo numérico se já existir. */

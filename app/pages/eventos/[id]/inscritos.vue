@@ -252,6 +252,20 @@ const naoFiliados = computed(() => (data.value?.inscritos ?? []).filter(i => !i.
                 sem Pix
               </UBadge>
               <UBadge
+                v-else-if="inscrito.cobranca.situacao === 'PAGA'"
+                :color="inscrito.cobranca.atualizada ? 'success' : 'warning'"
+                variant="subtle"
+              >
+                {{ inscrito.cobranca.atualizada ? 'pago' : 'pago, inscrição mudou' }}
+              </UBadge>
+              <UBadge
+                v-else-if="inscrito.cobranca.situacao === 'EM_ANALISE'"
+                color="info"
+                variant="subtle"
+              >
+                em análise
+              </UBadge>
+              <UBadge
                 v-else-if="!inscrito.cobranca.atualizada"
                 color="warning"
                 variant="subtle"
@@ -285,6 +299,9 @@ const naoFiliados = computed(() => (data.value?.inscritos ?? []).filter(i => !i.
       </ULink>
       <ULink :to="`/agenda/${data.evento.slug}`">
         Ver na agenda
+      </ULink>
+      <ULink :to="`/eventos/${data.evento.id}/pagamentos`">
+        Pagamentos
       </ULink>
       <ULink :to="`/eventos/${data.evento.id}/cbk`">
         Dados para a CBK

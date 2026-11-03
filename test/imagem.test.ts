@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   LIMITE_BYTES,
+  LIMITE_DO_COMPROVANTE,
   extensaoDoTipo,
   nomeDeCapaValido,
   problemasDaImagem,
@@ -124,5 +125,19 @@ describe('urlDaCapa', () => {
   it('devolve nulo quando não há capa', () => {
     expect(urlDaCapa('treino-de-sabado', null)).toBeNull()
     expect(urlDaCapa('treino-de-sabado', undefined)).toBeNull()
+  })
+})
+
+describe('problemasDaImagem com limite próprio', () => {
+  it('o comprovante tem limite de 2 MB, menor que o da capa', () => {
+    expect(LIMITE_DO_COMPROVANTE).toBeLessThan(LIMITE_BYTES)
+
+    const grande = arquivo(PNG, LIMITE_DO_COMPROVANTE + 1)
+    expect(problemasDaImagem(grande, LIMITE_DO_COMPROVANTE)[0]).toContain('no máximo 2 MB')
+    expect(problemasDaImagem(grande)).toEqual([])
+  })
+
+  it('no limite exato ainda cabe', () => {
+    expect(problemasDaImagem(arquivo(PNG, LIMITE_DO_COMPROVANTE), LIMITE_DO_COMPROVANTE)).toEqual([])
   })
 })

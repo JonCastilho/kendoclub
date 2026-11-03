@@ -1,4 +1,4 @@
-import { itensDaInscricao } from '~~/shared/cobrancaEvento'
+import { inscricaoTravada, itensDaInscricao, situacaoDaCobranca } from '~~/shared/cobrancaEvento'
 import { podeVer } from '~~/shared/publicacao'
 
 /**
@@ -46,9 +46,15 @@ export default defineEventHandler(async (event) => {
 
   const inscricao = await prisma.inscricaoEvento.findUnique({
     where: { eventoId_praticanteId: { eventoId: evento.id, praticanteId } },
-    select: { id: true, ...camposDaInscricao },
+    select: { id: true, ...camposDaInscricao, cobranca: true },
   })
   if (!inscricao) return responderErro(event, ['Salve a inscrição antes de gerar o Pix.'], voltar)
+
+  // Com o pagamento declarado ou confirmado, o Pix não muda: o que foi pago
+  // precisa continuar batendo com a cobrança.
+  if (inscricao.cobranca && inscricaoTravada(situacaoDaCobranca(inscricao.cobranca))) {
+    return responderErro(event, ['O pagamento desta inscrição já foi declarado. Para mudar o Pix, fale com a diretoria.'], voltar)
+  }
 
   const subeventos = evento.subeventos.map(subeventoDetalhado)
   const detalhada = inscricaoComTotal(inscricao, evento, subeventos)

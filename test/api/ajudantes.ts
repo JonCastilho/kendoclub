@@ -71,13 +71,13 @@ export async function enviar(
 export async function enviarArquivo(
   caminho: string,
   campos: Record<string, string> = {},
-  arquivo?: { nome: string, tipo: string, bytes: Uint8Array<ArrayBuffer> },
+  arquivo?: { nome: string, tipo: string, bytes: Uint8Array<ArrayBuffer>, campo?: string },
   opcoes: { cookie?: string, nativo?: boolean } = {},
 ): Promise<Resposta> {
   const corpo = new FormData()
   for (const [nome, valor] of Object.entries(campos)) corpo.append(nome, valor)
   if (arquivo) {
-    corpo.append('imagem', new Blob([arquivo.bytes], { type: arquivo.tipo }), arquivo.nome)
+    corpo.append(arquivo.campo ?? 'imagem', new Blob([arquivo.bytes], { type: arquivo.tipo }), arquivo.nome)
   }
 
   const cabecalhos: Record<string, string> = {}

@@ -111,6 +111,12 @@ function periodo(inicio: string | null, fim: string | null) {
 
 const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-2'
 
+/** Data e hora no fuso do clube, para o servidor e o navegador mostrarem o mesmo. */
+function momento(iso: string | null) {
+  if (!iso) return ''
+  return new Date(iso).toLocaleString('pt-BR', { timeZone: evento.value?.fuso, dateStyle: 'short', timeStyle: 'short' })
+}
+
 const copiado = ref(false)
 
 async function copiarPix() {
@@ -328,6 +334,14 @@ async function copiarPix() {
           {{ evento.podeEditar
             ? 'O prazo terminou, mas a diretoria ainda pode inscrever e remover.'
             : 'O prazo terminou. Para qualquer mudança, fale com a diretoria.' }}
+        </p>
+
+        <p
+          v-if="evento.inscricaoTravada && !evento.podeEditar"
+          class="mt-3 text-sm text-muted"
+        >
+          {{ evento.cobranca?.situacao === 'PAGA' ? 'O pagamento foi confirmado.' : 'O comprovante está em análise.' }}
+          Para mudar a inscrição, fale com a diretoria.
         </p>
 
         <form
@@ -585,7 +599,9 @@ async function copiarPix() {
             class="text-sm"
           >
             Total: <strong>{{ formatarReais(evento.inscricao.total) }}</strong>.
-            Para pagar, gere o Pix logo abaixo.
+            <template v-if="!evento.inscricaoTravada">
+              Para pagar, gere o Pix logo abaixo.
+            </template>
           </p>
         </form>
 
@@ -607,10 +623,51 @@ async function copiarPix() {
             Esta inscrição não tem nada a pagar.
           </p>
 
+          <template v-else-if="evento.cobranca?.situacao === 'PAGA'">
+            <p class="mt-2 text-sm text-success">
+              Pagamento de {{ formatarReais(evento.cobranca.valor) }} confirmado
+              <template v-if="evento.cobranca.pagaEm">
+                em {{ momento(evento.cobranca.pagaEm) }}
+              </template>.
+            </p>
+            <p
+              v-if="!evento.cobranca.atualizada"
+              class="mt-2 text-sm text-warning"
+            >
+              A inscrição mudou depois do pagamento: o total agora é
+              {{ formatarReais(evento.inscricao.total) }}. A diretoria vai conferir a diferença.
+            </p>
+          </template>
+
+          <template v-else-if="evento.cobranca?.situacao === 'EM_ANALISE'">
+            <p class="mt-2 text-sm">
+              Comprovante enviado em {{ momento(evento.cobranca.declaradaEm) }}. Aguarde a
+              conferência da diretoria.
+              <a
+                v-if="evento.cobranca.temComprovante"
+                :href="`/api/eventos/comprovante/${evento.cobranca.id}`"
+                target="_blank"
+                rel="noopener"
+                class="underline"
+              >Ver o comprovante enviado</a>
+            </p>
+            <p class="mt-1 text-sm text-muted">
+              Até lá, só a diretoria pode mudar a inscrição.
+            </p>
+          </template>
+
           <template v-else>
             <p class="mt-2 text-sm text-muted">
               O Pix cobre a inscrição salva. Se você mudar a inscrição, gere um
               novo.
+            </p>
+
+            <p
+              v-if="evento.cobranca?.motivoRecusa"
+              class="mt-3 text-sm text-warning"
+            >
+              A diretoria recusou o comprovante: {{ evento.cobranca.motivoRecusa }}
+              Confira o pagamento e envie outro.
             </p>
 
             <div
@@ -661,7 +718,7 @@ async function copiarPix() {
             </div>
 
             <p
-              v-else-if="evento.cobranca"
+              v-else-if="evento.cobranca && !evento.cobranca.atualizada"
               class="mt-4 text-sm text-warning"
             >
               A inscrição mudou depois que o Pix de
@@ -700,6 +757,55 @@ async function copiarPix() {
             >
               O clube ainda não configurou o Pix.
               {{ evento.podeEditar ? 'Preencha chave, titular e cidade em Configurações.' : 'Avise a diretoria.' }}
+            </p>
+
+            <!-- Depois de pagar: o comprovante é obrigatório e fica em disco
+                 só até a diretoria conferir. -->
+            <form
+              v-if="evento.cobranca?.pix && evento.inscrevendo.proprio"
+              method="post"
+              action="/api/eventos/comprovante"
+              enctype="multipart/form-data"
+              class="mt-6 flex flex-col gap-2 text-sm"
+            >
+              <h4 class="font-medium">
+                Já paguei
+              </h4>
+              <input
+                type="hidden"
+                name="eventoId"
+                :value="evento.id"
+              >
+              <label for="comprovante">Comprovante do Pix (JPG, PNG ou WebP, até 2 MB)</label>
+              <input
+                id="comprovante"
+                type="file"
+                name="comprovante"
+                accept="image/jpeg,image/png,image/webp"
+                required
+              >
+              <p class="text-xs text-muted">
+                A diretoria confere e confirma o pagamento, e então o arquivo é
+                apagado. Depois de enviar, só a diretoria pode mudar a inscrição.
+              </p>
+              <div>
+                <button
+                  type="submit"
+                  class="rounded-md bg-primary text-inverted font-medium px-4 py-2"
+                >
+                  Enviar comprovante
+                </button>
+              </div>
+            </form>
+            <p
+              v-else-if="evento.cobranca?.pix"
+              class="mt-6 text-sm text-muted"
+            >
+              O comprovante é enviado pela própria pessoa. Para registrar um pagamento
+              sem comprovante, use a tela de
+              <ULink :to="`/eventos/${evento.id}/pagamentos`">
+                pagamentos
+              </ULink>.
             </p>
           </template>
         </div>

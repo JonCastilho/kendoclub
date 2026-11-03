@@ -9,6 +9,9 @@
 /** Três megabytes. Foto de celular cabe; a coleção de fotos do treino, não. */
 export const LIMITE_BYTES = 3 * 1024 * 1024
 
+/** Dois megabytes. Um print de tela do comprovante cabe com folga. */
+export const LIMITE_DO_COMPROVANTE = 2 * 1024 * 1024
+
 export type TipoImagem = 'image/jpeg' | 'image/png' | 'image/webp'
 
 const EXTENSOES: Record<TipoImagem, string> = {
@@ -46,11 +49,11 @@ export function tipoDaImagem(bytes: Uint8Array): TipoImagem | null {
 }
 
 /** Lista de problemas. Vazia significa que o arquivo pode ser guardado. */
-export function problemasDaImagem(bytes: Uint8Array): string[] {
+export function problemasDaImagem(bytes: Uint8Array, limite = LIMITE_BYTES): string[] {
   if (bytes.length === 0) return ['Escolha um arquivo de imagem.']
 
-  if (bytes.length > LIMITE_BYTES) {
-    const megabytes = (LIMITE_BYTES / 1024 / 1024).toFixed(0)
+  if (bytes.length > limite) {
+    const megabytes = (limite / 1024 / 1024).toFixed(0)
     return [`A imagem precisa ter no máximo ${megabytes} MB.`]
   }
 

@@ -10,6 +10,7 @@ import {
   inscricoesAbertas,
   normalizarInscricao,
 } from '~~/shared/evento'
+import { inscricaoTravada, situacaoDaCobranca } from '~~/shared/cobrancaEvento'
 import { decidirExame, opcoesDeExame } from '~~/shared/exame'
 import { podeVer } from '~~/shared/publicacao'
 
@@ -71,6 +72,20 @@ export default defineEventHandler(async (event) => {
   const prazo = diaDe(evento.prazoInscricao)
   if (!ehDiretoria && !inscricoesAbertas(prazo, hojeNoFuso(await fusoDoClube()))) {
     return responderErro(event, [`As inscrições encerraram em ${formatarDia(prazo)}.`], voltar)
+  }
+
+  // Pagamento declarado ou confirmado: o que foi pago deixaria de bater com o
+  // que a pessoa escolhe. Só a diretoria muda, e vê o aviso na lista.
+  const cobrancaAtual = await prisma.cobrancaEvento.findFirst({
+    where: { inscricaoEvento: { eventoId: evento.id, praticanteId } },
+  })
+  const situacaoDoPagamento = cobrancaAtual ? situacaoDaCobranca(cobrancaAtual) : null
+  if (!ehDiretoria && inscricaoTravada(situacaoDoPagamento)) {
+    return responderErro(event, [
+      situacaoDoPagamento === 'PAGA'
+        ? 'O pagamento desta inscrição já foi confirmado. Para mudar a inscrição, fale com a diretoria.'
+        : 'O comprovante desta inscrição está em análise. Para mudar a inscrição, fale com a diretoria.',
+    ], voltar)
   }
 
   const campos = Object.keys(corpo)
@@ -192,6 +207,9 @@ export default defineEventHandler(async (event) => {
       })),
     })
   })
+
+  // Inscrição que some leva a cobrança junto; o comprovante em disco, não.
+  if (vazia) await apagarComprovante(cobrancaAtual?.comprovante ?? null)
 
   return responderSucesso(event, voltar)
 })

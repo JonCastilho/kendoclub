@@ -175,6 +175,7 @@ model Usuario {
   mensalidadesBaixadas  Mensalidade[]           @relation("BaixadaPor")
   isencoesConcedidas    Isencao[]               @relation("IsencaoConcedidaPor")
   declaracoesAnalisadas DeclaracaoPagamento[]   @relation("DeclaracaoAnalisadaPor")
+  cobrancasAnalisadas   CobrancaEvento[]        @relation("CobrancaEventoAnalisadaPor")
   tokensRedefinicao     TokenRedefinicaoSenha[]
 
   @@index([papel])
@@ -676,12 +677,32 @@ model InscricaoEvento {
 /// O que uma pessoa deve pelo evento, fixado quando ela gera o Pix: o valor e o
 /// que ele cobre. Uma por inscrição — gerar de novo, depois de mudar a
 /// inscrição, substitui a anterior. Se a inscrição muda e o total ou os itens
-/// deixam de bater com os guardados aqui, o Pix está desatualizado.
+/// deixam de bater com o que está guardado aqui, o Pix está desatualizado.
+///
+/// A situação é derivada, como a das mensalidades: paga se a diretoria aceitou;
+/// em análise se a pessoa declarou e ninguém analisou; do contrário, gerada.
 model CobrancaEvento {
   id       String   @id @default(cuid())
   valor    Decimal  @db.Decimal(10, 2)
   itens    String[]
   geradaEm DateTime @default(now())
+
+  /// A pessoa diz que pagou e anexa o comprovante. O arquivo fica em disco só
+  /// até a diretoria analisar: comprovante de Pix mostra nome, banco e às vezes
+  /// saldo, e o que vale depois é a baixa, não a imagem.
+  declaradaEm DateTime?
+  comprovante String?
+
+  /// Análise da diretoria. Aceitar dá a baixa; recusar devolve a cobrança à
+  /// pessoa, com o motivo, para uma nova declaração.
+  analisadaEm  DateTime?
+  aceita       Boolean?
+  motivoRecusa String?
+  /// Carimbos de baixa direta e de estorno: o histórico não se apaga.
+  observacao   String?
+
+  analisadaPor          Usuario? @relation("CobrancaEventoAnalisadaPor", fields: [analisadaPorUsuarioId], references: [id], onDelete: SetNull)
+  analisadaPorUsuarioId String?
 
   inscricaoEvento   InscricaoEvento @relation(fields: [inscricaoEventoId], references: [id], onDelete: Cascade)
   inscricaoEventoId String          @unique

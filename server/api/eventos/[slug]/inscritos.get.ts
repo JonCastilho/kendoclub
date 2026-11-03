@@ -1,5 +1,5 @@
 import { categoriasCompativeis } from '~~/shared/competicao'
-import { cobrancaAtualizada, itensDaInscricao } from '~~/shared/cobrancaEvento'
+import { cobrancaAtualizada, itensDaInscricao, situacaoDaCobranca } from '~~/shared/cobrancaEvento'
 import { type InscritosDoEvento, totaisDeObentoPorDia } from '~~/shared/evento'
 import { estaFiliado } from '~~/shared/filiacao'
 
@@ -32,7 +32,7 @@ export default defineEventHandler(async (event): Promise<InscritosDoEvento> => {
         orderBy: { praticante: { nomeCompleto: 'asc' } },
         select: {
           ...camposDaInscricao,
-          cobranca: { select: { valor: true, itens: true } },
+          cobranca: true,
           praticante: {
             select: {
               id: true,
@@ -83,6 +83,7 @@ export default defineEventHandler(async (event): Promise<InscritosDoEvento> => {
       cobranca: inscricao.cobranca
         ? {
             valor: Number(inscricao.cobranca.valor),
+            situacao: situacaoDaCobranca(inscricao.cobranca),
             atualizada: cobrancaAtualizada(
               { valor: Number(inscricao.cobranca.valor), itens: inscricao.cobranca.itens },
               { total: detalhada.total, itens: itensDaInscricao(detalhada, subeventos) },
