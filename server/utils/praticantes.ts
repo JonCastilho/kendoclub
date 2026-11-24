@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client'
 import { normalizarDocumento } from '~~/shared/documento'
+import { lerDiaDePagamento } from '~~/shared/lembrete'
 import { type DadosDoCadastro, problemasDoCadastro } from '~~/shared/praticante'
 
 /**
@@ -72,6 +73,10 @@ export function lerFormularioDoPraticante(
 
   const problemas = problemasDoCadastro(paraValidar)
 
+  // Vazio vale o dia do clube; só um número fora de 1 a 31 é erro.
+  const diaDePagamento = lerDiaDePagamento(texto(corpo.diaDePagamento))
+  if (diaDePagamento.problema) problemas.push(diaDePagamento.problema)
+
   return {
     problemas,
     dados: {
@@ -101,6 +106,7 @@ export function lerFormularioDoPraticante(
       observacoesMedicas: paraValidar.observacoesMedicas,
       iniciouPraticaEm: dataUtc(corpo.iniciouPraticaEm),
       observacoes: opcional(corpo.observacoes),
+      diaDePagamento: diaDePagamento.dia,
       consentimentoDadosEm: consentimentoEm(
         corpo.consentimentoDados, anteriores?.consentimentoDadosEm),
       consentimentoSaudeEm,

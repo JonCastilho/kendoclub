@@ -15,6 +15,21 @@ const { data } = await useFetch('/api/mensalidades', {
   })),
 })
 
+// Quem receberia lembrete agora. Não depende da competência da tela: o atraso
+// é de qualquer mês que continue em aberto.
+const { data: lembretes } = await useFetch('/api/mensalidades/lembretes')
+
+/** Resumo do envio, devolvido pelo endpoint na própria URL. */
+const envio = computed(() => {
+  if (rota.query.lembretesPessoas === undefined) return null
+  return {
+    pessoas: Number(rota.query.lembretesPessoas),
+    mensalidades: Number(rota.query.lembretesMensalidades),
+    semServidor: Number(rota.query.lembretesSemServidor),
+    falhas: Number(rota.query.lembretesFalhas),
+  }
+})
+
 const competencia = computed(() => String(rota.query.competencia ?? competenciaAtual()))
 const situacaoFiltro = computed(() => String(rota.query.situacao ?? ''))
 const hoje = new Date().toISOString().slice(0, 10)
@@ -44,6 +59,11 @@ function data_(valor: string | Date | null | undefined) {
   return new Date(valor).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
 }
 
+/** Instante do envio, no relógio de quem lê: não é um dia de calendário. */
+function diaDoEnvio(valor: string) {
+  return new Date(valor).toLocaleDateString('pt-BR')
+}
+
 const classeCampo = 'rounded-md border border-default bg-default px-3 py-2'
 const classeBotao = 'rounded-md border border-default px-3 py-2 text-sm'
 </script>
@@ -69,6 +89,26 @@ const classeBotao = 'rounded-md border border-default px-3 py-2 text-sm'
         + `${geracao.jaExistiam} já existiam e ${geracao.semCobranca} praticante(s) ficaram de fora `
         + `por não estarem filiados no primeiro dia do mês.`"
     />
+
+    <UAlert
+      v-if="envio"
+      class="mt-4"
+      :color="envio.semServidor || envio.falhas ? 'warning' : 'success'"
+      variant="subtle"
+      title="Lembretes processados"
+    >
+      <template #description>
+        {{ envio.pessoas }} e-mail(s) enviado(s), cobrindo {{ envio.mensalidades }}
+        mensalidade(s).
+        <template v-if="envio.semServidor">
+          {{ envio.semServidor }} pessoa(s) deixaram de receber porque o clube
+          ainda não configurou o servidor de e-mail; elas continuam na fila.
+        </template>
+        <template v-if="envio.falhas">
+          {{ envio.falhas }} envio(s) falharam e serão tentados de novo.
+        </template>
+      </template>
+    </UAlert>
 
     <UAlert
       v-if="data?.aConferir"
@@ -190,6 +230,62 @@ const classeBotao = 'rounded-md border border-default px-3 py-2 text-sm'
       </form>
     </div>
 
+    <!-- Só mensalidade manda e-mail de atraso. O mesmo envio roda sozinho todo
+         dia; o botão existe para a diretoria não esperar o horário. -->
+    <section class="mt-6 rounded-md border border-default p-4">
+      <h2 class="font-semibold">
+        Lembretes de atraso
+      </h2>
+      <p class="mt-1 text-sm text-muted">
+        Todo dia o sistema avisa por e-mail quem chegou a 15 e a 30 dias de
+        atraso. O atraso conta do vencimento ou do dia de pagamento que a pessoa
+        combinou, o que for mais tarde. Quem avisou que pagou e espera conferência
+        não recebe.
+      </p>
+
+      <div
+        v-if="lembretes?.pessoas"
+        class="mt-3 text-sm"
+      >
+        Para enviar agora: <strong>{{ lembretes.pessoas }}</strong> pessoa(s),
+        {{ lembretes.mensalidades }} mensalidade(s).
+        <ul class="mt-1 text-muted">
+          <li
+            v-for="lembrete in lembretes.lembretes"
+            :key="lembrete.praticanteId"
+          >
+            {{ lembrete.nome }} —
+            {{ lembrete.itens.map(i => `${formatarCompetencia(i.competencia)} (${i.marco} dias)`).join(', ') }}
+          </li>
+        </ul>
+      </div>
+      <p
+        v-else
+        class="mt-3 text-sm text-muted"
+      >
+        Ninguém tem lembrete a enviar hoje.
+      </p>
+
+      <form
+        method="post"
+        action="/api/mensalidades/lembretes"
+        class="mt-3"
+      >
+        <input
+          type="hidden"
+          name="competencia"
+          :value="competencia"
+        >
+        <button
+          type="submit"
+          :disabled="!lembretes?.pessoas"
+          class="rounded-md border border-default px-3 py-2 text-sm disabled:opacity-50"
+        >
+          Enviar lembretes agora
+        </button>
+      </form>
+    </section>
+
     <div
       v-if="!data?.mensalidades.length"
       class="mt-10 text-center text-muted"
@@ -227,6 +323,14 @@ const classeBotao = 'rounded-md border border-default px-3 py-2 text-sm'
                 {{ linha.descricao }} — {{ formatarReais(linha.valor) }}
               </li>
             </ul>
+
+            <p
+              v-if="mensalidade.lembretes.length"
+              class="mt-1 text-xs text-muted"
+            >
+              Lembrete enviado:
+              {{ mensalidade.lembretes.map(l => `${l.dias} dias, em ${diaDoEnvio(l.enviadoEm)}`).join('; ') }}
+            </p>
 
             <p
               v-if="mensalidade.situacao === 'PAGA'"

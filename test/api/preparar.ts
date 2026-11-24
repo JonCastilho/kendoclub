@@ -64,7 +64,7 @@ async function garantirBanco(url: string) {
   await cliente.end()
 }
 
-function urlDoBancoDeTeste(): string {
+export function urlDoBancoDeTeste(): string {
   garantirArquivoDeAmbiente()
 
   const linha = readFileSync(ARQUIVO_ENV, 'utf8')

@@ -88,6 +88,10 @@ const UFS = ['AC', 'AL', 'AM', 'AP', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MG', '
   'PA', 'PB', 'PE', 'PI', 'PR', 'RJ', 'RN', 'RO', 'RR', 'RS', 'SC', 'SE', 'SP', 'TO']
 
 const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-2'
+
+// O formulário é da diretoria, então a configuração do clube está ao alcance.
+// Só o dia de vencimento interessa: é o que vale para quem não escolheu outro.
+const { data: clube } = await useFetch('/api/configuracoes')
 </script>
 
 <template>
@@ -475,6 +479,43 @@ const classeCampo = 'w-full rounded-md border border-default bg-default px-3 py-
             :valor="paraCampoData(new Date())"
             ajuda="Pode ser retroativa, para quem já treina há anos."
           />
+        </div>
+      </section>
+
+      <section>
+        <h2 class="font-semibold mb-3">
+          Mensalidade
+        </h2>
+        <div class="sm:w-1/2">
+          <label
+            for="diaDePagamento"
+            class="block text-sm font-medium mb-1"
+          >Dia do mês em que paga a mensalidade</label>
+          <select
+            id="diaDePagamento"
+            name="diaDePagamento"
+            :class="classeCampo"
+          >
+            <option
+              value=""
+              :selected="!p.diaDePagamento"
+            >
+              Dia do clube{{ clube?.diaVencimento ? ` (dia ${clube.diaVencimento})` : '' }}
+            </option>
+            <option
+              v-for="dia in 31"
+              :key="dia"
+              :value="dia"
+              :selected="Number(p.diaDePagamento) === dia"
+            >
+              Dia {{ dia }}
+            </option>
+          </select>
+          <p class="mt-1 text-xs text-muted">
+            Combinado com o kenshi na filiação; depois, só a diretoria muda. O
+            lembrete de atraso por e-mail conta a partir deste dia. O vencimento
+            da cobrança continua sendo o do clube.
+          </p>
         </div>
       </section>
 

@@ -244,6 +244,12 @@ model Praticante {
   iniciouPraticaEm DateTime?
   observacoes      String?
 
+  /// Dia do mês (1 a 31) em que a pessoa combinou pagar a mensalidade. Escolhido
+  /// na filiação e mudado só pela diretoria. Vazio vale o dia de vencimento do
+  /// clube. Só desloca os lembretes por e-mail: o vencimento da cobrança
+  /// continua sendo o do clube.
+  diaDePagamento Int?
+
   // Consentimentos, cada um com sua data de aceite.
   consentimentoDadosEm       DateTime?
   consentimentoSaudeEm       DateTime?
@@ -436,6 +442,7 @@ model Mensalidade {
 
   linhas      LinhaMensalidade[]
   declaracoes DeclaracaoPagamento[]
+  lembretes   LembreteDeMensalidade[]
 
   /// Quem deu a baixa. Dinheiro pede trilha — PLANO.md §11.
   baixadaPor          Usuario? @relation("BaixadaPor", fields: [baixadaPorUsuarioId], references: [id], onDelete: SetNull)
@@ -475,6 +482,26 @@ model DeclaracaoPagamento {
   analisadaPorUsuarioId String?
 
   @@index([mensalidadeId])
+}
+
+/// Lembrete de atraso já enviado por e-mail: um por mensalidade e por marco.
+///
+/// A unicidade é o que impede repetir: a tarefa diária e o botão da diretoria
+/// podem rodar juntos, e quem grava primeiro fica com o envio. A linha nasce
+/// antes do e-mail sair e é apagada se ele não sair, então o que fica aqui é o
+/// que de fato foi enviado.
+model LembreteDeMensalidade {
+  id        String   @id @default(cuid())
+  /// Marco do lembrete: 15 ou 30 dias depois da data de referência.
+  dias      Int
+  /// Endereço a que o e-mail foi mandado, para o caso de o cadastro mudar.
+  para      String
+  enviadoEm DateTime @default(now())
+
+  mensalidade   Mensalidade @relation(fields: [mensalidadeId], references: [id], onDelete: Cascade)
+  mensalidadeId String
+
+  @@unique([mensalidadeId, dias])
 }
 
 /// Cada parcela do que se cobra no mês: a mensalidade do clube e um aluguel por

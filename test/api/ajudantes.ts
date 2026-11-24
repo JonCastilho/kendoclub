@@ -1,6 +1,27 @@
-import { ENDERECO } from './preparar'
+import { Client } from 'pg'
+import { ENDERECO, urlDoBancoDeTeste } from './preparar'
 
 export { ENDERECO }
+
+/**
+ * Roda SQL direto no banco de teste, para montar um cenário que a API não deixa
+ * montar — como uma mensalidade com vencimento três semanas atrás. A trava de
+ * `urlDoBancoDeTeste` recusa qualquer banco que não termine em "_teste".
+ */
+export async function consultarBanco<T = Record<string, unknown>>(
+  sql: string,
+  parametros: unknown[] = [],
+): Promise<T[]> {
+  const cliente = new Client({ connectionString: urlDoBancoDeTeste() })
+  await cliente.connect()
+  try {
+    const { rows } = await cliente.query(sql, parametros)
+    return rows as T[]
+  }
+  finally {
+    await cliente.end()
+  }
+}
 
 /** Conta de diretoria criada pelo preparo, usada como ator padrão dos testes. */
 export const DIRETORIA = { email: 'marcador@banco-de-teste', senha: 'senha do marcador' }

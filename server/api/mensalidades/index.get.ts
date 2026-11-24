@@ -19,6 +19,7 @@ export default defineEventHandler(async (event) => {
       praticante: { select: { id: true, nomeCompleto: true } },
       linhas: { orderBy: { tipo: 'asc' } },
       declaracoes: { orderBy: { criadoEm: 'desc' } },
+      lembretes: { select: { dias: true, enviadoEm: true }, orderBy: { dias: 'asc' } },
       baixadaPor: { select: { email: true } },
     },
     orderBy: { praticante: { nomeCompleto: 'asc' } },

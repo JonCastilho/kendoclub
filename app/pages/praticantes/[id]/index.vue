@@ -218,6 +218,15 @@ const classeBotao = 'rounded-md border border-default px-3 py-2 text-sm'
         Filiações
       </h2>
 
+      <p class="mb-3 text-sm text-muted">
+        Dia de pagamento da mensalidade:
+        <strong class="text-default">{{ praticante.diaDePagamento ? `dia ${praticante.diaDePagamento}` : 'o do clube' }}</strong>.
+        Quem muda é a diretoria, em
+        <ULink :to="`/praticantes/${id}/editar`">
+          Editar dados
+        </ULink>.
+      </p>
+
       <ul class="text-sm divide-y divide-default border-y border-default">
         <li
           v-for="filiacao in praticante.filiacoes"

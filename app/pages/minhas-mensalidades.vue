@@ -46,6 +46,21 @@ async function copiarPix() {
       Minhas mensalidades
     </h1>
 
+    <p
+      v-if="data?.diaDePagamento"
+      class="mt-1 text-sm text-muted"
+    >
+      Seu dia de pagamento: dia {{ data.diaDePagamento }}. Para trocar, fale com a
+      diretoria.
+    </p>
+    <p
+      v-else-if="data?.diaDoClube"
+      class="mt-1 text-sm text-muted"
+    >
+      Vencimento no dia {{ data.diaDoClube }}, o padrão do clube. Para combinar
+      outro dia do mês, fale com a diretoria.
+    </p>
+
     <UAlert
       v-if="data?.emAberto"
       class="mt-4"

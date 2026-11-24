@@ -60,9 +60,23 @@ ambiente são criados sozinhos na primeira execução.
 
 ### Envio de e-mail
 
-A redefinição de senha usa SMTP, configurado em `.env`. **Sem SMTP configurado o
-sistema continua funcionando**: a mensagem não sai e o link é registrado no log
-do servidor, o que basta em desenvolvimento.
+A redefinição de senha e o lembrete de mensalidade em atraso usam SMTP,
+configurado em `.env`. **Sem SMTP configurado o sistema continua funcionando**: a
+mensagem não sai e o texto é registrado no log do servidor, o que basta em
+desenvolvimento. Os lembretes que não saíram não ficam marcados como enviados:
+assim que o SMTP for configurado, a próxima execução os envia.
+
+### Lembrete de mensalidade em atraso
+
+Todo dia às 12h (horário do servidor) o sistema envia um e-mail a quem está com a
+mensalidade em aberto há 15 e há 30 dias, e depois não avisa mais. O atraso conta
+do vencimento do clube ou do dia de pagamento que a pessoa combinou na filiação,
+o que for mais tarde. A diretoria pode disparar na hora pelo botão "Enviar
+lembretes agora", na tela de mensalidades; é a mesma função, e repetir não reenvia
+nada.
+
+A tarefa roda dentro do próprio servidor, então **só dispara com o app no ar**:
+hospedagem que hiberna o processo não a executa, e nesse caso o botão é o caminho.
 
 ### Imagens enviadas
 

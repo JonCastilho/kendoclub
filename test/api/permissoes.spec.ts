@@ -58,12 +58,18 @@ describe('sem sessão', () => {
   it.each([
     '/api/praticantes',
     '/api/mensalidades',
+    '/api/mensalidades/lembretes',
     '/api/itens',
     '/api/configuracoes',
     '/api/painel/resumo',
     '/api/modalidades',
   ])('%s responde 401', async (caminho) => {
     const { status } = await ler(caminho)
+    expect(status).toBe(401)
+  })
+
+  it('não deixa disparar lembretes', async () => {
+    const { status } = await enviar('/api/mensalidades/lembretes')
     expect(status).toBe(401)
   })
 
@@ -77,11 +83,17 @@ describe('praticante nas rotas da diretoria', () => {
   it.each([
     '/api/praticantes',
     '/api/mensalidades',
+    '/api/mensalidades/lembretes',
     '/api/itens',
     '/api/configuracoes',
     '/api/painel/resumo',
   ])('%s responde 403', async (caminho) => {
     const { status } = await ler(caminho, praticanteCookie)
+    expect(status).toBe(403)
+  })
+
+  it('não dispara lembretes de atraso', async () => {
+    const { status } = await enviar('/api/mensalidades/lembretes', {}, { cookie: praticanteCookie })
     expect(status).toBe(403)
   })
 

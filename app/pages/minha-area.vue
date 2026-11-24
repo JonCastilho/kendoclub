@@ -1,8 +1,14 @@
 <script setup lang="ts">
+import { formatarReais } from '~~/shared/dinheiro'
+
 definePageMeta({ middleware: 'autenticado' })
 useHead({ title: 'Minha área - KendoClub' })
 
 const { user } = useUserSession()
+
+// Só mensalidade aparece aqui: é a cobrança que se repete todo mês e que o
+// clube cobra por e-mail. Evento e exame mostram a situação na própria página.
+const { data: mensalidades } = await useFetch('/api/mensalidades/minhas')
 </script>
 
 <template>
@@ -13,6 +19,23 @@ const { user } = useUserSession()
     <p class="mt-1 text-muted">
       {{ user?.nome }}
     </p>
+
+    <UAlert
+      v-if="mensalidades?.aPagar"
+      class="mt-6"
+      color="warning"
+      variant="subtle"
+      :title="`${formatarReais(mensalidades.aPagar)} em mensalidades em aberto`"
+    >
+      <template #description>
+        <ULink
+          to="/minhas-mensalidades"
+          class="underline"
+        >
+          Veja o que falta pagar e como pagar
+        </ULink>.
+      </template>
+    </UAlert>
 
     <UCard class="mt-8">
       <dl class="grid gap-3 sm:grid-cols-2 text-sm">

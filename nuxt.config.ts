@@ -47,6 +47,20 @@ export default defineNuxtConfig({
     },
   },
 
+  nitro: {
+    // Tarefas agendadas rodam dentro do próprio servidor, sem cron do sistema:
+    // o clube sobe o app e o lembrete funciona. Ainda é marcado como
+    // experimental no Nitro; se um dia sair, a tarefa é chamável também pelo
+    // botão da diretoria, que usa a mesma função.
+    experimental: { tasks: true },
+    scheduledTasks: {
+      // Todo dia às 12h, no horário do servidor (9h em Brasília, se ele estiver
+      // em UTC). O dia que vale para o atraso é o do fuso do clube, não o do
+      // servidor — ver planoDeLembretes.
+      '0 12 * * *': ['lembretes:mensalidades'],
+    },
+  },
+
   app: {
     head: {
       htmlAttrs: { lang: 'pt-BR' },

@@ -72,6 +72,7 @@ Praticante            id, nomeCompleto, dataNascimento,
                       responsavelNome?, responsavelTelefone?,
                       observacoesMedicas?,          # dado sensível — ver §11
                       iniciouPraticaEm?, observacoes?,
+                      diaDePagamento? (1 a 31; vazio = dia do clube),
                       consentimentoDadosEm?, consentimentoSaudeEm?,
                       autorizacaoImagemEm?, responsavelConsentimentoEm?
 Filiacao              id, praticanteId, inicioEm, fimEm?, motivoSaida?
@@ -96,6 +97,8 @@ Mensalidade           id, praticanteId, competencia (AAAA-MM), vencimento,
                       baixadaPorUsuarioId?
 LinhaMensalidade      id, mensalidadeId, tipo (MENSALIDADE|ALUGUEL|OUTRO),
                       descricao, valor, aluguelId?
+LembreteDeMensalidade id, mensalidadeId, dias (15|30), para, enviadoEm
+                      único por (mensalidadeId, dias)
 
 Publicacao            id, titulo, slug, conteudo (markdown),
                       imagemCapa? (nome do arquivo em disco, não endereço),
@@ -242,7 +245,8 @@ do clube, usuários.
 | ORM | Prisma | Schema declarativo e migrations versionadas; familiar para quem vem de JPA |
 | Autenticação | nuxt-auth-utils | Sessão em cookie selado e hash de senha embutidos, sem serviço externo |
 | Validação | Zod | Mesmo schema valida no cliente e no servidor |
-| E-mail | Nodemailer via SMTP | Só para redefinição de senha e convites; SMTP é o denominador comum |
+| E-mail | Nodemailer via SMTP | Redefinição de senha, convites e lembrete de mensalidade em atraso; SMTP é o denominador comum |
+| Tarefas agendadas | Nitro (`nitro.scheduledTasks`) | Rodam dentro do próprio servidor, sem cron do sistema; ainda é marcado como experimental |
 | Conteúdo | Markdown | Editor simples e sem HTML colado — corta a superfície de XSS |
 | Testes | Vitest (regras de negócio) e Playwright (fluxos críticos) | Cobertura onde errar sai caro: cobrança, permissão, RSVP |
 
@@ -300,6 +304,11 @@ armazenamento S3-compatível fica como opção posterior atrás da mesma interfa
 - **Backup:** `pg_dump` diário para fora do servidor. Vai documentado no README; é
   o item que clube pequeno mais esquece.
 - **Fuso e moeda:** `America/Sao_Paulo` e BRL fixos no MVP.
+- **Tarefa diária:** o lembrete de mensalidade em atraso roda dentro do app, todo
+  dia às 12h no horário do servidor. Hospedagem que hiberna o processo (o plano
+  gratuito do Render, por exemplo) não dispara a tarefa; nesse caso a diretoria
+  usa o botão da tela de mensalidades, que chama a mesma função. O app pode
+  ficar fora do ar por até 15 dias sem perder um lembrete (ver 7.4b-3).
 
 ## 9. Roadmap
 
@@ -525,7 +534,7 @@ Partes da etapa, para caber em revisões de tamanho razoável:
 | 7.4a | Dados para a CBK: tela com os dados do evento na ordem da planilha, e nome no zekken e posição na equipe anotados pela diretoria |
 | 7.4b-1 | Gerar o Pix da inscrição: cobrança do evento, QR code e "copia e cola" |
 | 7.4b-2 | Comprovante, declaração de pagamento e baixa pela diretoria |
-| 7.4b-3 | Lembrete por e-mail a quem ainda não pagou |
+| 7.4b-3 | Lembrete de mensalidade em atraso por e-mail (15 e 30 dias), com o dia de pagamento do praticante e a tarefa agendada |
 | depois | Perguntas extras do evento |
 
 Decisões da parte 7.1, tomadas na implementação:
@@ -598,6 +607,51 @@ Reestruturação das categorias por tipo, pedida pela diretoria depois da 7.3:
 - **Quando as categorias escolhidas misturam isentas e pagas, paga-se.** A
   participação é uma só por competição, e só é gratuita se todas forem isentas.
 
+Decisões da parte 7.4b-3, tomadas com a diretoria:
+
+- **Só a mensalidade manda e-mail de atraso.** Evento, exame e os demais
+  pagamentos aparecem na tela e nunca geram lembrete por e-mail.
+- **Dois lembretes, aos 15 e aos 30 dias de atraso, e depois nada.** Cada um vale
+  por uma janela de 15 dias (do 15º ao 29º dia, do 30º ao 44º). Assim o app pode
+  ficar fora do ar sem perder o aviso; quem chegou ao 35º dia sem receber o de 15
+  recebe só o de 30, e não os dois juntos; e dívida antiga não vira enxurrada de
+  e-mails no dia em que o agendador entra em uso. Passou da janela, o aviso fica
+  só na tela.
+- **O atraso conta do dia de pagamento combinado ou do vencimento do clube, o
+  que for mais tarde.** O kenshi escolhe o dia na filiação (a diretoria lança no
+  cadastro) e, depois, só a diretoria muda. O dia só desloca o e-mail: o
+  vencimento da cobrança continua sendo o do clube. Dia combinado anterior ao
+  vencimento não adianta nada, para o e-mail não falar em atraso de uma cobrança
+  que ainda nem venceu. Vazio vale o dia do clube; 29, 30 e 31 caem no último dia
+  dos meses que não os têm; o banco recusa dia fora de 1 a 31.
+- **Quem recebe:** cobrança em aberto, de valor maior que zero, com e-mail de
+  contato cadastrado — tenha a pessoa acesso ao sistema ou não (o texto manda
+  procurar a diretoria quando não tem). Fica de fora quem avisou que pagou e
+  espera conferência; se a diretoria recusar o aviso, volta ao plano. Quem deve
+  mais de um mês recebe um só e-mail por dia.
+- **Cada lembrete fica registrado e não se repete.** O marco de cada mensalidade
+  é reservado numa linha única antes de o e-mail sair, e a reserva é desfeita se
+  ele não sai: o registro guarda só o que foi enviado, sem SMTP nada fica
+  marcado e a próxima execução tenta de novo. Duas execuções ao mesmo tempo (o
+  botão e a tarefa) não duplicam e-mail.
+- **A tarefa roda todo dia às 12h do servidor** (`nitro.scheduledTasks`) e chama
+  a mesma função do botão "Enviar lembretes agora", na tela de mensalidades, que
+  mostra antes quem vai receber e, nas cobranças, quais lembretes já saíram.
+  "Hoje" é o dia no fuso do clube, não o do servidor.
+- **Aviso na tela:** a *Minha área* mostra o total de mensalidades em aberto,
+  sem as que aguardam conferência, com o caminho para *Minhas mensalidades*, que
+  mostra o dia de pagamento e diz que a troca é com a diretoria.
+- **Fora desta parte:** gerar as cobranças do mês sozinho no dia 1 (a diretoria
+  segue com o botão, porque revisa valor e isenções antes) e mostrar o QR do Pix
+  nas mensalidades, que hoje só mostram a chave.
+- **Como foi conferido:** o servidor dos testes automáticos não tem SMTP, então
+  eles cobrem o plano (quem entra, quem fica de fora, janelas, dia combinado),
+  as permissões e a reserva desfeita quando o e-mail não sai. O envio de
+  verdade foi conferido à mão contra um servidor SMTP de mentira: texto dos
+  e-mails, registro, disparo repetido sem reenvio, dois disparos simultâneos
+  (quatro e-mails, não oito), servidor de e-mail fora do ar (nada fica
+  registrado) e o agendador disparando sozinho.
+
 Decisões da parte 7.4b-2, tomadas com a diretoria:
 
 - **Quem paga anexa o comprovante e declara**, e a diretoria confere. O
@@ -626,8 +680,8 @@ Decisões da parte 7.4b-2, tomadas com a diretoria:
   como nas mensalidades.
 - **A tela de pagamentos** põe primeiro o que há para conferir e resume quanto
   já foi confirmado do que se espera. Não há aviso por e-mail à diretoria
-  quando um comprovante chega: ela consulta a tela, e o lembrete aos que não
-  pagaram é a 7.4b-3.
+  quando um comprovante chega: ela consulta a tela. E pagamento de evento não
+  gera lembrete de atraso: ver a 7.4b-3.
 
 Decisões da parte 7.4b-1, tomadas com a diretoria:
 
@@ -724,7 +778,7 @@ Decisões da parte 7.3, tomadas na implementação:
   de edição, como pedido pela diretoria. Publicar exige valor em seminário e
   competição, e banca — de dan ou de shogo — no exame.
 
-**Concluídas:** etapas 0, 1, 2, 3, 4, 5 e 6 (setembro de 2026), e as partes 7.1, 7.2, 7.3, 7.4a, 7.4b-1 e 7.4b-2.
+**Concluídas:** etapas 0, 1, 2, 3, 4, 5 e 6 (setembro de 2026), e as partes 7.1, 7.2, 7.3, 7.4a, 7.4b-1, 7.4b-2 e 7.4b-3.
 
 Decisões da etapa 6:
 
